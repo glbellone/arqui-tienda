@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: Plataforma de Tiendas Online
+  version: 1.0.0
+  description: |
+    API pública de la plataforma, expuesta a través del API Gateway.
+    Nivel 2 del modelo de madurez de Richardson: recursos, verbos HTTP y códigos de estado.
+    Los errores siguen el formato Problem Details (RFC 9457).
+servers:
+  - url: http://localhost:8000
+    description: Gateway local (docker compose)
+tags:
+  - name: Catálogo
+paths:
+  /v1/tiendas/{tiendaId}/productos:
+    parameters:
+      - $ref: '#/components/parameters/TiendaId'
+    get:
+      tags: [Catálogo]
+      summary: Listar los productos de una tienda
+      description: Público. Solo devuelve productos de la tienda indicada.
+      responses:
+        '200':
+          description: Productos de la tienda
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Producto' }
+        '404': { $ref: '#/components/responses/Problema' }
+    post:
+      tags: [Catálogo]
+      summary: Cargar un producto en la tienda
+      description: Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL.
+      security:
+        - oidc: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoProducto' }
+      responses:
+        '201':
+          description: Producto creado
+          headers:
+            Location:
+              description: URL del producto creado
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Producto' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+        '409': { $ref: '#/components/responses/Problema' }
+        '422': { $ref: '#/components/responses/Problema' }
+  /v1/tiendas/{tiendaId}/productos/{productoId}:
+    parameters:
+      - $ref: '#/components/parameters/TiendaId'
+      - name: productoId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Catálogo]
+      summary: Obtener un producto de la tienda
+      responses:
+        '200':
+          description: El producto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Producto' }
+        '404': { $ref: '#/components/responses/Problema' }
+components:
+  securitySchemes:
+    oidc:
+      type: openIdConnect
+      openIdConnectUrl: http://localhost:8080/realms/tiendas/.well-known/openid-configuration
+  parameters:
+    TiendaId:
+      name: tiendaId
+      in: path
+      required: true
+      description: Identificador de la tienda. El gateway lo usa para rutear a su celda.
+      schema: { type: string, pattern: '^[a-z0-9-]{1,40}$', example: t1 }
+  schemas:
+    NuevoProducto:
+      type: object
+      required: [sku, nombre, precio]
+      properties:
+        sku: { type: string, maxLength: 64, example: REM-001 }
+        nombre: { type: string, maxLength: 200, example: Remera de algodón }
+        precio: { type: number, minimum: 0, example: 15000 }
+        moneda: { type: string, pattern: '^[A-Z]{3}$', default: ARS }
+    Producto:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tiendaId: { type: string, example: t1 }
+        sku: { type: string, example: REM-001 }
+        nombre: { type: string, example: Remera de algodón }
+        precio:
+          type: object
+          properties:
+            monto: { type: number, example: 15000 }
+            moneda: { type: string, example: ARS }
+    Problema:
+      type: object
+      description: Problem Details (RFC 9457)
+      properties:
+        type: { type: string, example: about:blank }
+        title: { type: string, example: Prohibido }
+        status: { type: integer, example: 403 }
+        detail: { type: string, example: Solo podés cargar productos en tu propia tienda }
+        instance: { type: string, example: /v1/tiendas/t2/productos }
+  responses:
+    Problema:
+      description: Error en formato Problem Details
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problema' }

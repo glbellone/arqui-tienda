@@ -1,0 +1,96 @@
+# Levanta toda la plataforma: docker compose up --build
+# Simula el modelo de celdas (ADR-001/002): una celda pool para las tiendas estándar
+# y una celda Premium de ejemplo. Las dos usan la misma imagen; solo cambia la base.
+
+x-app-comun: &app-comun
+  build: ./app
+  restart: unless-stopped
+  environment: &app-env
+    OIDC_ISSUER: http://localhost:8080/realms/tiendas
+    OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
+    PASARELA_URL: http://pasarela-mock:4000
+
+x-db-comun: &db-comun
+  image: postgres:16-alpine
+  restart: unless-stopped
+  environment:
+    POSTGRES_DB: tiendas
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+  volumes:
+    - ./app/db/init:/docker-entrypoint-initdb.d:ro
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U postgres -d tiendas"]
+    interval: 5s
+    retries: 10
+
+services:
+  gateway:
+    build: ./gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      CELDAS_URLS: '{"pool": "http://app-pool:3000", "premium-a": "http://app-premium-a:3000"}'
+      OIDC_ISSUER: http://localhost:8080/realms/tiendas
+      OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
+    depends_on:
+      - app-pool
+      - app-premium-a
+
+  # --- Celda pool: tiendas estándar, base compartida con row-level security ---
+  app-pool:
+    <<: *app-comun
+    environment:
+      <<: *app-env
+      CELDA: pool
+      DB_URL: postgres://app_user:app_pass@db-pool:5432/tiendas
+    depends_on:
+      db-pool:
+        condition: service_healthy
+
+  db-pool:
+    <<: *db-comun
+
+  # --- Celda Premium A: una tienda Premium, base físicamente separada ---
+  app-premium-a:
+    <<: *app-comun
+    environment:
+      <<: *app-env
+      CELDA: premium-a
+      DB_URL: postgres://app_user:app_pass@db-premium-a:5432/tiendas
+    depends_on:
+      db-premium-a:
+        condition: service_healthy
+
+  db-premium-a:
+    <<: *db-comun
+
+  # --- Identidad OIDC (ADR-005) ---
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.7
+    command: start-dev --import-realm
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # Fija el issuer de los tokens en localhost, aunque las apps lean las claves por la red interna.
+      KC_HOSTNAME_URL: http://localhost:8080
+    volumes:
+      - ./infra/keycloak/realm-tiendas.json:/opt/keycloak/data/import/realm-tiendas.json:ro
+
+  # --- Sistema externo simulado (ADR-007) ---
+  pasarela-mock:
+    build: ./pasarela-mock
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+
+  # --- Broker de eventos para Analítica (ADR-006). Todavía no lo usa ningún servicio. ---
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    ports:
+      - "15672:15672"
