@@ -25,6 +25,13 @@ x-db-comun: &db-comun
     retries: 10
 
 services:
+  # --- Frontend web: SPA en React (ADR-010) ---
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+
   gateway:
     build: ./gateway
     restart: unless-stopped
@@ -32,6 +39,7 @@ services:
       - "8000:8000"
     environment:
       CELDAS_URLS: '{"pool": "http://app-pool:3000", "premium-a": "http://app-premium-a:3000"}'
+      CORS_ORIGIN: http://localhost:5173
       OIDC_ISSUER: http://localhost:8080/realms/tiendas
       OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
     depends_on:

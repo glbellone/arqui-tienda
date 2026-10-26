@@ -14,12 +14,16 @@ docker compose up --build
 
 | Servicio | URL |
 | --- | --- |
+| **Frontend** | **http://localhost:5173** |
 | API (gateway) | http://localhost:8000 |
 | Keycloak (consola: admin / admin) | http://localhost:8080 |
 | Pasarela de pagos simulada | http://localhost:4000 |
 | RabbitMQ (guest / guest) | http://localhost:15672 |
 
 Keycloak tarda unos segundos en arrancar la primera vez.
+
+Keycloak importa el realm (usuarios y roles) solo cuando se crea el contenedor. Si cambia
+`infra/keycloak/realm-tiendas.json`, hay que recrearlo: `docker compose down && docker compose up --build`.
 
 ## Usuarios de prueba
 
@@ -31,7 +35,15 @@ Keycloak tarda unos segundos en arrancar la primera vez.
 | `duenio.p1` | `duenio123` | duenio | p1 (Premium, celda premium-a) |
 | `comprador` | `comprador123` | comprador | — |
 
-## Probar el caso de uso mínimo
+## Demo desde el navegador
+
+1. Entrá a http://localhost:5173 y abrí **La Yerbera**: está vacía y el sello dice que la atendió la celda `pool`.
+2. **Ingresar** con `duenio.t1` / `duenio123` y andá a **Mi panel**.
+3. Cargá un producto en tu tienda: aparece en la vitrina de La Yerbera y en ninguna otra.
+4. En "Cargar en la tienda" elegí otra tienda: la API responde **403**, aunque la interfaz te deje intentarlo.
+5. Abrí **Sastrería Ombú**: el sello dice `premium-a`, su celda dedicada. Ingresá con `duenio.p1` para cargarle productos.
+
+## Probar el caso de uso mínimo con curl
 
 Un dueño carga un producto y un comprador lo ve solo en esa tienda. Requiere `curl` y `jq`.
 
@@ -65,6 +77,7 @@ curl -i http://localhost:8000/v1/tiendas/p1/productos
 
 ```
 .
+├── frontend/               SPA en React: vitrina de las tiendas y panel del dueño
 ├── app/                    Monolito modular (NestJS). Se despliega en cada celda.
 │   ├── db/init/            Esquema SQL con row-level security
 │   └── src/
@@ -95,3 +108,4 @@ Ver [`docs/adr/`](docs/adr/). Resumen:
 7. [ADR-007](docs/adr/ADR-007-acl-pasarela-de-pagos.md): ACL e idempotencia con la pasarela.
 8. [ADR-008](docs/adr/ADR-008-stack-nestjs-postgresql.md): NestJS + PostgreSQL.
 9. [ADR-009](docs/adr/ADR-009-identificacion-de-tienda-en-la-url.md): la tienda se identifica en la URL.
+10. [ADR-010](docs/adr/ADR-010-frontend-spa-react.md): frontend como SPA en React.

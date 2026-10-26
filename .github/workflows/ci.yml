@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        servicio: [app, gateway, pasarela-mock]
+        servicio: [app, gateway, pasarela-mock, frontend]
     defaults:
       run:
         working-directory: ${{ matrix.servicio }}
