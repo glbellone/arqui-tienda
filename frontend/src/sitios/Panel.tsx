@@ -1,49 +1,24 @@
-import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
-import { aProblema, formatearPrecio, panel, type Problema, type Producto, type Tienda } from '../api';
-import { ingresar, salir, sesionActual, type Sesion } from '../auth';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { aProblema, formatearPrecio, tiendaActual, type Problema, type Producto, type Tienda } from '../api';
+import { esDuenioDe, ingresar, type Sesion } from '../auth';
 import AvisoError from '../componentes/AvisoError';
 
-/** Panel de los dueños, en panel.{dominio}. Cada dueño ve y carga solo su tienda (la del token). */
-export default function Panel() {
-  const sesion = sesionActual();
-
-  return (
-    <div className="marco">
-      <header className="barra">
-        <span className="marca">
-          Vidriera <span className="marca-detalle">Panel</span>
-        </span>
-        <div className="sesion">
-          {sesion ? (
-            <>
-              <span className="sesion-quien">
-                <strong>{sesion.nombre}</strong>
-                <span>{sesion.usuario}</span>
-              </span>
-              <button type="button" className="boton boton-secundario" onClick={salir}>
-                Salir
-              </button>
-            </>
-          ) : (
-            <button type="button" className="boton" onClick={ingresar}>
-              Ingresar
-            </button>
-          )}
-        </div>
-      </header>
-      <main className="contenido">
-        <Contenido sesion={sesion} />
-      </main>
-    </div>
-  );
+interface Props {
+  tienda: Tienda;
+  sesion: Sesion | null;
 }
 
-function Contenido({ sesion }: { sesion: Sesion | null }) {
+/**
+ * Panel del dueño, en /panel del subdominio de su tienda. Ocultar el botón no alcanza:
+ * si otro usuario entra directo a /panel, se lo frena acá, y la API igual rechaza la carga (403).
+ */
+export default function Panel({ tienda, sesion }: Props) {
   if (!sesion) {
     return (
       <section className="aviso-centrado">
-        <h1 className="titulo">Panel del dueño</h1>
-        <p className="bajada">Ingresá con el usuario de tu tienda para cargar productos.</p>
+        <h1 className="titulo">Panel de {tienda.nombre}</h1>
+        <p className="bajada">Ingresá con el usuario del dueño para cargar productos.</p>
         <button type="button" className="boton" onClick={ingresar}>
           Ingresar
         </button>
@@ -51,23 +26,24 @@ function Contenido({ sesion }: { sesion: Sesion | null }) {
     );
   }
 
-  if (!sesion.roles.includes('duenio') || !sesion.tiendaId) {
+  if (!esDuenioDe(sesion, tienda.id)) {
     return (
       <section className="aviso-centrado">
-        <h1 className="titulo">Panel del dueño</h1>
-        <p className="bajada">Tu usuario no administra ninguna tienda, así que no tiene nada para cargar acá.</p>
+        <h1 className="titulo">Panel de {tienda.nombre}</h1>
+        <p className="bajada">Tu usuario no administra esta tienda.</p>
+        <Link to="/" className="boton boton-secundario">
+          Volver a la tienda
+        </Link>
       </section>
     );
   }
 
-  return <PanelDuenio tiendaId={sesion.tiendaId} />;
+  return <PanelDuenio tienda={tienda} />;
 }
 
 type Resultado = { tipo: 'ok'; producto: Producto; celda: string | null } | { tipo: 'error'; problema: Problema };
 
-function PanelDuenio({ tiendaId }: { tiendaId: string }) {
-  const [tienda, setTienda] = useState<Tienda | null>(null);
-  const [errorTienda, setErrorTienda] = useState<Problema | null>(null);
+function PanelDuenio({ tienda }: { tienda: Tienda }) {
   const [nombre, setNombre] = useState('');
   const [sku, setSku] = useState('');
   const [precio, setPrecio] = useState('');
@@ -75,19 +51,12 @@ function PanelDuenio({ tiendaId }: { tiendaId: string }) {
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
 
-  useEffect(() => {
-    panel
-      .tienda(tiendaId)
-      .then(({ datos }) => setTienda(datos))
-      .catch((error) => setErrorTienda(aProblema(error)));
-  }, [tiendaId]);
-
   const recargar = useCallback(() => {
-    panel
-      .productos(tiendaId)
+    tiendaActual
+      .productos()
       .then(({ datos }) => setProductos(datos))
       .catch(() => setProductos([]));
-  }, [tiendaId]);
+  }, []);
 
   useEffect(recargar, [recargar]);
 
@@ -96,7 +65,7 @@ function PanelDuenio({ tiendaId }: { tiendaId: string }) {
     setEnviando(true);
     setResultado(null);
     try {
-      const { datos, celda } = await panel.crearProducto(tiendaId, { nombre, sku, precio: Number(precio) });
+      const { datos, celda } = await tiendaActual.crearProducto({ nombre, sku, precio: Number(precio) });
       setResultado({ tipo: 'ok', producto: datos, celda });
       setNombre('');
       setSku('');
@@ -109,18 +78,11 @@ function PanelDuenio({ tiendaId }: { tiendaId: string }) {
     }
   }
 
-  if (errorTienda) return <AvisoError problema={errorTienda} />;
-  if (!tienda) return <p className="nota">Cargando tu tienda…</p>;
-
   return (
-    <section style={{ '--tienda': tienda.color } as CSSProperties}>
+    <section>
       <h1 className="titulo">Panel de {tienda.nombre}</h1>
       <p className="bajada">
-        Tu tienda se publica en{' '}
-        <a href={tienda.url} target="_blank" rel="noreferrer">
-          {tienda.url.replace(/^https?:\/\//, '')}
-        </a>
-        . Lo que cargues acá se ve ahí, y en ninguna otra tienda.
+        Lo que cargues acá se ve en <Link to="/">la vitrina de tu tienda</Link>, y en ninguna otra.
       </p>
 
       <div className="panel">

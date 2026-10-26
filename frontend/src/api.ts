@@ -76,19 +76,17 @@ export function aProblema(error: unknown): Problema {
   return { title: 'Error inesperado', status: 0, detail: String(error) };
 }
 
-// Vitrina: la tienda sale del subdominio, así que las rutas no llevan su id.
-export const vitrina = {
-  tienda: () => pedir<Tienda>('/v1/tienda'),
+// En el subdominio de una tienda las rutas no llevan su id: el gateway la resuelve por el host.
+// Eso vale también para el panel: el dueño solo puede operar sobre la tienda en la que está.
+export const tiendaActual = {
+  datos: () => pedir<Tienda>('/v1/tienda'),
   productos: () => pedir<Producto[]>('/v1/productos'),
+  crearProducto: (producto: NuevoProducto) =>
+    pedir<Producto>('/v1/productos', { method: 'POST', body: JSON.stringify(producto) }),
 };
 
-// Panel: el dueño trabaja sobre la tienda de su token, con el contrato completo de la API (ADR-009).
-export const panel = {
-  tienda: (tiendaId: string) => pedir<Tienda>(`/v1/tiendas/${tiendaId}`),
-  productos: (tiendaId: string) => pedir<Producto[]>(`/v1/tiendas/${tiendaId}/productos`),
-  crearProducto: (tiendaId: string, producto: NuevoProducto) =>
-    pedir<Producto>(`/v1/tiendas/${tiendaId}/productos`, { method: 'POST', body: JSON.stringify(producto) }),
-};
+// En la plataforma (sin subdominio) se usa el contrato completo de la API (ADR-009).
+export const buscarTienda = (tiendaId: string) => pedir<Tienda>(`/v1/tiendas/${tiendaId}`);
 
 const formato = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
 export const formatearPrecio = (p: Producto['precio']) =>

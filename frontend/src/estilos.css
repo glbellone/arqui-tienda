@@ -399,15 +399,6 @@ a {
   }
 }
 
-/* Detalle de la marca en el panel */
-.marca-detalle {
-  font-family: var(--texto);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--tinta-suave);
-  margin-left: 0.35rem;
-}
-
 /* Presentación de la plataforma */
 .presentacion {
   padding-top: clamp(3rem, 10vh, 6rem);

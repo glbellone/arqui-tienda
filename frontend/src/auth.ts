@@ -17,9 +17,57 @@ export interface Sesion {
   tiendaId?: string;
 }
 
-/** Se llama una sola vez, antes de renderizar la app. */
-export function iniciarAuth(): Promise<boolean> {
-  return keycloak.init({ pkceMethod: 'S256', checkLoginIframe: false });
+/**
+ * La sesión se guarda en sessionStorage para que sobreviva a un F5. Es por origen:
+ * cada tienda (cada subdominio) tiene la suya. Si el usuario ya ingresó en otra tienda,
+ * Keycloak lo reconoce por su cookie y no le vuelve a pedir la contraseña.
+ */
+const CLAVE = 'vidriera.sesion';
+
+function guardar() {
+  try {
+    sessionStorage.setItem(
+      CLAVE,
+      JSON.stringify({ token: keycloak.token, refreshToken: keycloak.refreshToken, idToken: keycloak.idToken }),
+    );
+  } catch {
+    // Sin sessionStorage la sesión dura hasta recargar la página.
+  }
+}
+
+function olvidar() {
+  try {
+    sessionStorage.removeItem(CLAVE);
+  } catch {
+    // Nada que borrar.
+  }
+}
+
+function sesionGuardada(): { token: string; refreshToken: string; idToken?: string } | undefined {
+  try {
+    return JSON.parse(sessionStorage.getItem(CLAVE) ?? 'null') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Se llama una sola vez, antes de renderizar. Para un visitante anónimo no hace ningún pedido
+ * a Keycloak: la vitrina no depende de que Keycloak esté disponible.
+ */
+export async function iniciarAuth(): Promise<boolean> {
+  keycloak.onAuthSuccess = guardar;
+  keycloak.onAuthRefreshSuccess = guardar;
+  try {
+    const autenticado = await keycloak.init({ pkceMethod: 'S256', checkLoginIframe: false, ...sesionGuardada() });
+    if (!autenticado) olvidar();
+    return autenticado;
+  } catch (error) {
+    // Sesión guardada vencida o Keycloak caído: se sigue sin sesión.
+    olvidar();
+    keycloak.clearToken();
+    throw error;
+  }
 }
 
 export function sesionActual(): Sesion | null {
@@ -41,16 +89,25 @@ export function sesionActual(): Sesion | null {
   };
 }
 
+/** ¿La sesión es del dueño de esta tienda? Solo a él se le muestra el panel. */
+export const esDuenioDe = (sesion: Sesion | null, tiendaId: string) =>
+  !!sesion && sesion.roles.includes('duenio') && sesion.tiendaId === tiendaId;
+
 /** Devuelve un token vigente, renovándolo si está por vencer. */
 export async function tokenVigente(): Promise<string | undefined> {
   if (!keycloak.authenticated) return undefined;
   try {
     await keycloak.updateToken(30);
   } catch {
+    olvidar();
     await keycloak.login();
   }
   return keycloak.token;
 }
 
 export const ingresar = () => keycloak.login();
-export const salir = () => keycloak.logout({ redirectUri: window.location.origin });
+
+export function salir() {
+  olvidar();
+  return keycloak.logout({ redirectUri: window.location.origin });
+}
