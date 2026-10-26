@@ -37,11 +37,11 @@ export class Registro {
 }
 
 /** Subdominios de la plataforma que no son tiendas. */
-const RESERVADOS = new Set(['www', 'panel', 'api']);
+const RESERVADOS = new Set(['www', 'api']);
 
 /**
  * Devuelve el subdominio de tienda del host, o undefined si el pedido llega a un host de la
- * plataforma (localhost, panel.localhost, etc.). El puerto se ignora.
+ * plataforma (localhost, www.localhost, etc.). El puerto se ignora.
  */
 export function subdominioDeTienda(host: string | undefined, dominioBase: string): string | undefined {
   if (!host) return undefined;
