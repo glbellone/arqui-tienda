@@ -1,0 +1,13 @@
+{
+  "name": "tests-aislamiento",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tests end-to-end de aislamiento entre tiendas. Corren contra la plataforma levantada con docker compose.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
