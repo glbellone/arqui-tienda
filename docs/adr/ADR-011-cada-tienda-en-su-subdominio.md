@@ -24,8 +24,10 @@ Vamos a publicar cada tienda en su propio subdominio: `{subdominio}.plataforma.c
   `la-yerbera.localhost` se traduce a `/v1/tiendas/t1/productos`. Cualquier ruta con otro id da 404.
 - **La app no cambia.** Su contrato sigue siendo `/v1/tiendas/{tiendaId}/...` (ADR-009): la
   dirección pública es una cosa y el contrato interno de la API es otra.
-- **El panel de los dueños vive aparte**, en `panel.plataforma.com`. Cada dueño opera sobre la
-  tienda de su token.
+- **El panel del dueño está dentro de su tienda**, en `{subdominio}.plataforma.com/panel`. Cualquiera
+  puede ingresar desde la tienda, pero el botón del panel solo aparece si el usuario es el dueño de
+  esa tienda. Ocultar el botón es comodidad, no seguridad: si otro usuario entra a `/panel`, la API
+  igual rechaza la carga con 403.
 - **La raíz de la plataforma es una presentación**, sin listado de tiendas.
 - **La SPA llama a la API en su mismo origen** (`/api`), y nginx la reenvía al gateway conservando
   el host. Así el gateway sabe de qué tienda es el pedido y no hace falta CORS.
@@ -37,6 +39,9 @@ Vamos a publicar cada tienda en su propio subdominio: `{subdominio}.plataforma.c
 - **Dominio propio para cada tienda (`layerbera.com.ar`):** es lo ideal para el emprendedor, pero
   exige verificar el DNS y emitir un certificado TLS por cada dominio. Se descarta por ahora, y
   se puede sumar después agregando el dominio al registro, sin cambiar la app.
+- **Panel en un subdominio propio (`panel.plataforma.com`):** separa mejor la administración, pero
+  el dueño administra su tienda desde una dirección distinta a la de su tienda. Preferimos que entre
+  desde su propia tienda, y el panel queda acotado a ella por el mismo mecanismo que la vitrina.
 - **Resolver la tienda en el frontend:** la SPA leería su hostname y elegiría el id. El mapeo
   quedaría en el cliente, que tendría que conocer todas las tiendas.
 
@@ -50,8 +55,11 @@ Vamos a publicar cada tienda en su propio subdominio: `{subdominio}.plataforma.c
 - El gateway responde los datos públicos de la tienda (`GET /v1/tiendas/{id}`) con su registro.
   Es una simplificación del TP hasta que exista el módulo Tiendas e Inquilinos.
 - Cambiar el subdominio de una tienda rompe los enlaces viejos.
-- Keycloak solo necesita aceptar el panel como destino de login. Si los compradores inician
-  sesión en el futuro, cada subdominio va a tener que estar registrado en el cliente OIDC.
+- Como se ingresa desde cada tienda, cada subdominio tiene que estar registrado como destino de
+  login en el cliente OIDC de Keycloak. En el TP están las tres tiendas de prueba; en producción,
+  dar de alta una tienda incluye registrarlo con la API de administración de Keycloak.
+- La sesión del navegador es por tienda (cada subdominio es un origen). Si el usuario ya ingresó
+  en otra tienda, Keycloak lo reconoce por su cookie y no le vuelve a pedir la contraseña.
 
 ## NFRs afectados
 

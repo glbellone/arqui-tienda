@@ -17,7 +17,6 @@ docker compose up --build
 | **Vitrina de La Yerbera** (t1, estándar) | **http://la-yerbera.localhost:5173** |
 | **Vitrina de Cerámica Ñandú** (t2, estándar) | **http://ceramica-nandu.localhost:5173** |
 | **Vitrina de Sastrería Ombú** (p1, Premium) | **http://sastreria-ombu.localhost:5173** |
-| **Panel de los dueños** | **http://panel.localhost:5173** |
 | Presentación de la plataforma | http://localhost:5173 |
 | API (gateway) | http://localhost:8000 |
 | Keycloak (consola: admin / admin) | http://localhost:8080 |
@@ -45,9 +44,10 @@ Keycloak importa el realm (usuarios y roles) solo cuando se crea el contenedor. 
 ## Demo desde el navegador
 
 1. Entrá a http://la-yerbera.localhost:5173: es la vitrina de La Yerbera, sin rastro de otras tiendas. Está vacía y el sello dice que la atendió la celda `pool`.
-2. En otra pestaña, entrá al panel (http://panel.localhost:5173) e ingresá con `duenio.t1` / `duenio123`.
+2. **Ingresar** con `duenio.t1` / `duenio123`: como es el dueño, aparece el botón **Panel** (http://la-yerbera.localhost:5173/panel).
 3. Cargá un producto: aparece en la vitrina de La Yerbera y en ninguna otra.
-4. Abrí http://sastreria-ombu.localhost:5173: el sello dice `premium-a`, su celda dedicada. Ingresá al panel con `duenio.p1` para cargarle productos.
+4. Abrí http://ceramica-nandu.localhost:5173 con la misma sesión: Keycloak no te pide la contraseña, pero no aparece el botón del panel, porque no sos el dueño. Si entrás a `/panel` a mano, te frena.
+5. Abrí http://sastreria-ombu.localhost:5173: el sello dice `premium-a`, su celda dedicada. Ingresá con `duenio.p1` para cargarle productos.
 
 El intento de un dueño de cargar productos en otra tienda (403) lo cubren los tests de aislamiento.
 
@@ -101,7 +101,7 @@ subdominio de una tienda no se llega a otra.
 
 ```
 .
-├── frontend/               SPA en React: presentación, panel del dueño y vitrina de cada tienda
+├── frontend/               SPA en React: presentación y cada tienda (vitrina y /panel del dueño)
 ├── app/                    Monolito modular (NestJS). Se despliega en cada celda.
 │   ├── db/init/            Esquema SQL con row-level security
 │   └── src/

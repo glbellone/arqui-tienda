@@ -19,7 +19,7 @@ Vamos a construir una SPA en React + TypeScript (Vite), servida por nginx, que c
 ## Consecuencias
 
 - Clara separación cliente-servidor: la interfaz no tiene reglas de negocio, solo muestra datos y captura acciones.
-- Un mismo build sirve tres sitios según el host: la presentación de la plataforma, el panel de los dueños y la vitrina de cada tienda (ver ADR-011).
+- Un mismo build sirve dos sitios según el host: la presentación de la plataforma y cada tienda, con su vitrina en `/` y el panel de su dueño en `/panel` (ver ADR-011).
 - La SPA llama a la API en su mismo origen (`/api`) y nginx la reenvía al gateway, así que no hace falta CORS.
 - El navegador no sabe en qué celda vive cada tienda: lo resuelve el gateway. La SPA solo muestra el header `X-Celda` para la demo.
 - SEO limitado, aceptable para el TP.
