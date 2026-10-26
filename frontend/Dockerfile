@@ -3,9 +3,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-# El navegador del usuario es quien llama a la API y a Keycloak: por eso son URLs de localhost.
-ARG VITE_API_URL=http://localhost:8000
+# La API se llama en el mismo origen (/api, ver nginx.conf). Keycloak lo abre el navegador del usuario.
+ARG VITE_API_URL=/api
 ARG VITE_KEYCLOAK_URL=http://localhost:8080
+ARG VITE_DOMINIO_BASE=localhost
 RUN npm run build
 
 FROM nginx:1.27-alpine

@@ -58,24 +58,6 @@ a {
   letter-spacing: -0.02em;
 }
 
-.navegacion {
-  display: flex;
-  gap: 1.25rem;
-}
-
-.navegacion a {
-  color: var(--tinta-suave);
-  text-decoration: none;
-  font-weight: 500;
-  padding: 0.25rem 0;
-  border-bottom: 2px solid transparent;
-}
-
-.navegacion a.active {
-  color: var(--tinta);
-  border-bottom-color: var(--tinta);
-}
-
 .sesion {
   margin-left: auto;
   display: flex;
@@ -156,54 +138,6 @@ a {
 
 .boton-secundario:hover {
   background: var(--fondo);
-}
-
-/* Lista de tiendas */
-.lista-tiendas {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--linea);
-}
-
-.lista-tiendas li {
-  border-bottom: 1px solid var(--linea);
-}
-
-.fila-tienda {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  padding: 1.1rem 0.5rem;
-  color: inherit;
-  text-decoration: none;
-}
-
-.fila-tienda:hover {
-  background: var(--superficie);
-}
-
-.fila-color {
-  flex: none;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  background: var(--tienda);
-}
-
-.fila-texto {
-  display: flex;
-  flex-direction: column;
-}
-
-.fila-nombre {
-  font-family: var(--display);
-  font-size: 1.35rem;
-  font-weight: 600;
-}
-
-.fila-rubro {
-  color: var(--tinta-suave);
 }
 
 .plan {
@@ -463,4 +397,34 @@ a {
   .sello {
     transform: none;
   }
+}
+
+/* Detalle de la marca en el panel */
+.marca-detalle {
+  font-family: var(--texto);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  margin-left: 0.35rem;
+}
+
+/* Presentación de la plataforma */
+.presentacion {
+  padding-top: clamp(3rem, 10vh, 6rem);
+}
+
+.presentacion code {
+  font-size: 0.95em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+}
+
+/* Pie de la vitrina */
+.pie {
+  padding: 2rem 1rem 3rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
 }

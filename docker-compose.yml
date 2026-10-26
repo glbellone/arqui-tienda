@@ -31,6 +31,8 @@ services:
     restart: unless-stopped
     ports:
       - "5173:80"
+    depends_on:
+      - gateway
 
   gateway:
     build: ./gateway
@@ -39,7 +41,9 @@ services:
       - "8000:8000"
     environment:
       CELDAS_URLS: '{"pool": "http://app-pool:3000", "premium-a": "http://app-premium-a:3000"}'
-      CORS_ORIGIN: http://localhost:5173
+      # ADR-011: cada tienda se publica en {subdominio}.{DOMINIO_BASE}.
+      DOMINIO_BASE: localhost
+      URL_PUBLICA_TIENDA: http://{subdominio}.localhost:5173
       OIDC_ISSUER: http://localhost:8080/realms/tiendas
       OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
     depends_on:

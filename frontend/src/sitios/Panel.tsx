@@ -1,24 +1,49 @@
 import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { crearProducto, formatearPrecio, listarProductos, type Problema, type Producto } from '../api';
-import { ingresar, type Sesion } from '../auth';
+import { aProblema, formatearPrecio, panel, type Problema, type Producto, type Tienda } from '../api';
+import { ingresar, salir, sesionActual, type Sesion } from '../auth';
 import AvisoError from '../componentes/AvisoError';
-import { buscarTienda, TIENDAS } from '../tiendas';
-import { aProblema } from './Tienda';
 
-interface Props {
-  sesion: Sesion | null;
+/** Panel de los dueños, en panel.{dominio}. Cada dueño ve y carga solo su tienda (la del token). */
+export default function Panel() {
+  const sesion = sesionActual();
+
+  return (
+    <div className="marco">
+      <header className="barra">
+        <span className="marca">
+          Vidriera <span className="marca-detalle">Panel</span>
+        </span>
+        <div className="sesion">
+          {sesion ? (
+            <>
+              <span className="sesion-quien">
+                <strong>{sesion.nombre}</strong>
+                <span>{sesion.usuario}</span>
+              </span>
+              <button type="button" className="boton boton-secundario" onClick={salir}>
+                Salir
+              </button>
+            </>
+          ) : (
+            <button type="button" className="boton" onClick={ingresar}>
+              Ingresar
+            </button>
+          )}
+        </div>
+      </header>
+      <main className="contenido">
+        <Contenido sesion={sesion} />
+      </main>
+    </div>
+  );
 }
 
-type Resultado = { tipo: 'ok'; producto: Producto; celda: string | null } | { tipo: 'error'; problema: Problema };
-
-/** Panel del dueño: carga productos en su tienda (caso de uso mínimo del TP). */
-export default function Panel({ sesion }: Props) {
+function Contenido({ sesion }: { sesion: Sesion | null }) {
   if (!sesion) {
     return (
       <section className="aviso-centrado">
         <h1 className="titulo">Panel del dueño</h1>
-        <p className="bajada">Ingresá con el usuario de una tienda para cargar productos.</p>
+        <p className="bajada">Ingresá con el usuario de tu tienda para cargar productos.</p>
         <button type="button" className="boton" onClick={ingresar}>
           Ingresar
         </button>
@@ -26,34 +51,40 @@ export default function Panel({ sesion }: Props) {
     );
   }
 
-  const miTienda = buscarTienda(sesion.tiendaId);
-  if (!sesion.roles.includes('duenio') || !miTienda) {
+  if (!sesion.roles.includes('duenio') || !sesion.tiendaId) {
     return (
       <section className="aviso-centrado">
         <h1 className="titulo">Panel del dueño</h1>
-        <p className="bajada">Tu usuario no administra ninguna tienda, así que no puede cargar productos.</p>
-        <Link to="/" className="boton boton-secundario">
-          Ver las tiendas
-        </Link>
+        <p className="bajada">Tu usuario no administra ninguna tienda, así que no tiene nada para cargar acá.</p>
       </section>
     );
   }
 
-  return <PanelDuenio tiendaId={miTienda.id} />;
+  return <PanelDuenio tiendaId={sesion.tiendaId} />;
 }
 
+type Resultado = { tipo: 'ok'; producto: Producto; celda: string | null } | { tipo: 'error'; problema: Problema };
+
 function PanelDuenio({ tiendaId }: { tiendaId: string }) {
-  const miTienda = buscarTienda(tiendaId)!;
+  const [tienda, setTienda] = useState<Tienda | null>(null);
+  const [errorTienda, setErrorTienda] = useState<Problema | null>(null);
   const [nombre, setNombre] = useState('');
   const [sku, setSku] = useState('');
   const [precio, setPrecio] = useState('');
-  const [destino, setDestino] = useState(tiendaId);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
 
+  useEffect(() => {
+    panel
+      .tienda(tiendaId)
+      .then(({ datos }) => setTienda(datos))
+      .catch((error) => setErrorTienda(aProblema(error)));
+  }, [tiendaId]);
+
   const recargar = useCallback(() => {
-    listarProductos(tiendaId)
+    panel
+      .productos(tiendaId)
       .then(({ datos }) => setProductos(datos))
       .catch(() => setProductos([]));
   }, [tiendaId]);
@@ -65,7 +96,7 @@ function PanelDuenio({ tiendaId }: { tiendaId: string }) {
     setEnviando(true);
     setResultado(null);
     try {
-      const { datos, celda } = await crearProducto(destino, { nombre, sku, precio: Number(precio) });
+      const { datos, celda } = await panel.crearProducto(tiendaId, { nombre, sku, precio: Number(precio) });
       setResultado({ tipo: 'ok', producto: datos, celda });
       setNombre('');
       setSku('');
@@ -78,12 +109,18 @@ function PanelDuenio({ tiendaId }: { tiendaId: string }) {
     }
   }
 
+  if (errorTienda) return <AvisoError problema={errorTienda} />;
+  if (!tienda) return <p className="nota">Cargando tu tienda…</p>;
+
   return (
-    <section style={{ '--tienda': miTienda.color } as CSSProperties}>
-      <h1 className="titulo">Panel de {miTienda.nombre}</h1>
+    <section style={{ '--tienda': tienda.color } as CSSProperties}>
+      <h1 className="titulo">Panel de {tienda.nombre}</h1>
       <p className="bajada">
-        Lo que cargues acá se ve en <Link to={`/tiendas/${miTienda.id}`}>la vitrina de tu tienda</Link>, y en ninguna
-        otra.
+        Tu tienda se publica en{' '}
+        <a href={tienda.url} target="_blank" rel="noreferrer">
+          {tienda.url.replace(/^https?:\/\//, '')}
+        </a>
+        . Lo que cargues acá se ve ahí, y en ninguna otra tienda.
       </p>
 
       <div className="panel">
@@ -110,18 +147,6 @@ function PanelDuenio({ tiendaId }: { tiendaId: string }) {
               required
             />
           </label>
-          <label className="campo">
-            <span>Cargar en la tienda</span>
-            <select value={destino} onChange={(e) => setDestino(e.target.value)}>
-              {TIENDAS.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
-                  {t.id === tiendaId ? ' (la tuya)' : ''}
-                </option>
-              ))}
-            </select>
-            <small>Para la demo: elegí otra tienda y la API va a rechazar la carga.</small>
-          </label>
 
           <button type="submit" className="boton" disabled={enviando}>
             {enviando ? 'Cargando…' : 'Cargar producto'}
@@ -133,8 +158,7 @@ function PanelDuenio({ tiendaId }: { tiendaId: string }) {
               <div>
                 <strong>Producto cargado</strong>
                 <p>
-                  {resultado.producto.nombre} quedó en {buscarTienda(resultado.producto.tiendaId)?.nombre}, guardado
-                  por la celda {resultado.celda ?? '—'}.
+                  {resultado.producto.nombre} quedó en {tienda.nombre}, guardado por la celda {resultado.celda ?? '—'}.
                 </p>
               </div>
             </div>
