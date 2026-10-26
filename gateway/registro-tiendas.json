@@ -1,5 +1,26 @@
 {
-  "t1": "pool",
-  "t2": "pool",
-  "p1": "premium-a"
+  "t1": {
+    "subdominio": "la-yerbera",
+    "celda": "pool",
+    "nombre": "La Yerbera",
+    "rubro": "Yerbas, mates y bombillas",
+    "plan": "Estándar",
+    "color": "#C98A12"
+  },
+  "t2": {
+    "subdominio": "ceramica-nandu",
+    "celda": "pool",
+    "nombre": "Cerámica Ñandú",
+    "rubro": "Vajilla hecha a mano",
+    "plan": "Estándar",
+    "color": "#24806F"
+  },
+  "p1": {
+    "subdominio": "sastreria-ombu",
+    "celda": "premium-a",
+    "nombre": "Sastrería Ombú",
+    "rubro": "Indumentaria a medida",
+    "plan": "Premium",
+    "color": "#6D3FD0"
+  }
 }
