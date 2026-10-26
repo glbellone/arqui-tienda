@@ -99,6 +99,29 @@ describe('Aislamiento entre tiendas', () => {
     assert.equal(res.status, 403);
   });
 
+  test('el dueño de t1 carga desde el panel de su tienda, en su subdominio (201)', async () => {
+    const res = await pedir({
+      metodo: 'POST',
+      ruta: '/v1/productos',
+      host: enTienda('la-yerbera'),
+      token: tokenT1,
+      cuerpo: producto('Bombilla'),
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.json.tiendaId, 't1');
+  });
+
+  test('el dueño de t1 no puede cargar desde el subdominio de otra tienda (403)', async () => {
+    const res = await pedir({
+      metodo: 'POST',
+      ruta: '/v1/productos',
+      host: enTienda('ceramica-nandu'),
+      token: tokenT1,
+      cuerpo: producto('Intruso'),
+    });
+    assert.equal(res.status, 403);
+  });
+
   test('sin token no se puede cargar (401)', async () => {
     const res = await pedir({ metodo: 'POST', ruta: '/v1/tiendas/t1/productos', cuerpo: producto('Anonimo') });
     assert.equal(res.status, 401);
