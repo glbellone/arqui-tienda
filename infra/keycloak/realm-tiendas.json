@@ -4,9 +4,18 @@
   "accessTokenLifespan": 1800,
   "roles": {
     "realm": [
-      { "name": "admin", "description": "Supervisa la plataforma" },
-      { "name": "duenio", "description": "Administra su tienda" },
-      { "name": "comprador", "description": "Compra en las tiendas" }
+      {
+        "name": "admin",
+        "description": "Supervisa la plataforma"
+      },
+      {
+        "name": "duenio",
+        "description": "Administra su tienda"
+      },
+      {
+        "name": "comprador",
+        "description": "Compra en las tiendas"
+      }
     ]
   },
   "clients": [
@@ -17,8 +26,12 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://localhost:*"],
-      "webOrigins": ["+"],
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
       "protocolMappers": [
         {
           "name": "tienda_id",
@@ -33,7 +46,11 @@
             "userinfo.token.claim": "true"
           }
         }
-      ]
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      }
     }
   ],
   "users": [
@@ -44,8 +61,16 @@
       "emailVerified": true,
       "firstName": "Ada",
       "lastName": "Admin",
-      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
-      "realmRoles": ["admin"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin"
+      ]
     },
     {
       "username": "duenio.t1",
@@ -54,9 +79,21 @@
       "emailVerified": true,
       "firstName": "Tina",
       "lastName": "Estandar",
-      "credentials": [{ "type": "password", "value": "duenio123", "temporary": false }],
-      "realmRoles": ["duenio"],
-      "attributes": { "tienda_id": ["t1"] }
+      "credentials": [
+        {
+          "type": "password",
+          "value": "duenio123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "duenio"
+      ],
+      "attributes": {
+        "tienda_id": [
+          "t1"
+        ]
+      }
     },
     {
       "username": "duenio.t2",
@@ -65,9 +102,21 @@
       "emailVerified": true,
       "firstName": "Tomas",
       "lastName": "Estandar",
-      "credentials": [{ "type": "password", "value": "duenio123", "temporary": false }],
-      "realmRoles": ["duenio"],
-      "attributes": { "tienda_id": ["t2"] }
+      "credentials": [
+        {
+          "type": "password",
+          "value": "duenio123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "duenio"
+      ],
+      "attributes": {
+        "tienda_id": [
+          "t2"
+        ]
+      }
     },
     {
       "username": "duenio.p1",
@@ -76,9 +125,21 @@
       "emailVerified": true,
       "firstName": "Paula",
       "lastName": "Premium",
-      "credentials": [{ "type": "password", "value": "duenio123", "temporary": false }],
-      "realmRoles": ["duenio"],
-      "attributes": { "tienda_id": ["p1"] }
+      "credentials": [
+        {
+          "type": "password",
+          "value": "duenio123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "duenio"
+      ],
+      "attributes": {
+        "tienda_id": [
+          "p1"
+        ]
+      }
     },
     {
       "username": "comprador",
@@ -87,8 +148,16 @@
       "emailVerified": true,
       "firstName": "Carla",
       "lastName": "Compradora",
-      "credentials": [{ "type": "password", "value": "comprador123", "temporary": false }],
-      "realmRoles": ["comprador"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "comprador123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "comprador"
+      ]
     }
   ]
 }
