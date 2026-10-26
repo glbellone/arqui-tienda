@@ -20,6 +20,7 @@ Vamos a resolver la tienda en el API Gateway y rutear a la celda que figura en e
 - Mover una tienda a Premium es cambiar un registro.
 - El gateway es un componente crítico y debe estar replicado.
 - Simplificación del TP: el registro es el archivo `gateway/registro-tiendas.json`. En producción lo provee el módulo Tiendas e Inquilinos.
+- Desde ADR-011, el registro también guarda el subdominio de cada tienda: el gateway resuelve la tienda a partir del host.
 
 ## NFRs afectados
 

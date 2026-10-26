@@ -14,11 +14,18 @@ docker compose up --build
 
 | Servicio | URL |
 | --- | --- |
-| **Frontend** | **http://localhost:5173** |
+| **Vitrina de La Yerbera** (t1, estándar) | **http://la-yerbera.localhost:5173** |
+| **Vitrina de Cerámica Ñandú** (t2, estándar) | **http://ceramica-nandu.localhost:5173** |
+| **Vitrina de Sastrería Ombú** (p1, Premium) | **http://sastreria-ombu.localhost:5173** |
+| **Panel de los dueños** | **http://panel.localhost:5173** |
+| Presentación de la plataforma | http://localhost:5173 |
 | API (gateway) | http://localhost:8000 |
 | Keycloak (consola: admin / admin) | http://localhost:8080 |
 | Pasarela de pagos simulada | http://localhost:4000 |
 | RabbitMQ (guest / guest) | http://localhost:15672 |
+
+Cada tienda se publica en su propio subdominio (ADR-011): sus compradores no ven las demás tiendas.
+Chrome y Firefox resuelven `*.localhost` solos, sin tocar el archivo `hosts`.
 
 Keycloak tarda unos segundos en arrancar la primera vez.
 
@@ -37,11 +44,12 @@ Keycloak importa el realm (usuarios y roles) solo cuando se crea el contenedor. 
 
 ## Demo desde el navegador
 
-1. Entrá a http://localhost:5173 y abrí **La Yerbera**: está vacía y el sello dice que la atendió la celda `pool`.
-2. **Ingresar** con `duenio.t1` / `duenio123` y andá a **Mi panel**.
-3. Cargá un producto en tu tienda: aparece en la vitrina de La Yerbera y en ninguna otra.
-4. En "Cargar en la tienda" elegí otra tienda: la API responde **403**, aunque la interfaz te deje intentarlo.
-5. Abrí **Sastrería Ombú**: el sello dice `premium-a`, su celda dedicada. Ingresá con `duenio.p1` para cargarle productos.
+1. Entrá a http://la-yerbera.localhost:5173: es la vitrina de La Yerbera, sin rastro de otras tiendas. Está vacía y el sello dice que la atendió la celda `pool`.
+2. En otra pestaña, entrá al panel (http://panel.localhost:5173) e ingresá con `duenio.t1` / `duenio123`.
+3. Cargá un producto: aparece en la vitrina de La Yerbera y en ninguna otra.
+4. Abrí http://sastreria-ombu.localhost:5173: el sello dice `premium-a`, su celda dedicada. Ingresá al panel con `duenio.p1` para cargarle productos.
+
+El intento de un dueño de cargar productos en otra tienda (403) lo cubren los tests de aislamiento.
 
 ## Probar el caso de uso mínimo con curl
 
@@ -58,26 +66,42 @@ curl -i -X POST http://localhost:8000/v1/tiendas/t1/productos \
   -H "Authorization: Bearer $TOKEN_T1" -H 'Content-Type: application/json' \
   -d '{"sku": "REM-001", "nombre": "Remera de algodón", "precio": 15000}'
 
-# 3. Un comprador lo ve en t1 (header X-Celda: pool)...
-curl -i http://localhost:8000/v1/tiendas/t1/productos
+# 3. Un comprador lo ve en el subdominio de t1 (header X-Celda: pool)...
+curl -i -H 'Host: la-yerbera.localhost' http://localhost:8000/v1/productos
 
-# 4. ...pero no en t2, aunque viva en la misma base
-curl -i http://localhost:8000/v1/tiendas/t2/productos
+# 4. ...pero no en el de t2, aunque viva en la misma base
+curl -i -H 'Host: ceramica-nandu.localhost' http://localhost:8000/v1/productos
 
-# 5. El dueño de t1 no puede cargar productos en t2 → 403
+# 5. Desde el subdominio de una tienda no se llega a otra → 404
+curl -i -H 'Host: la-yerbera.localhost' http://localhost:8000/v1/tiendas/t2/productos
+
+# 6. El dueño de t1 no puede cargar productos en t2 → 403
 curl -i -X POST http://localhost:8000/v1/tiendas/t2/productos \
   -H "Authorization: Bearer $TOKEN_T1" -H 'Content-Type: application/json' \
   -d '{"sku": "X-1", "nombre": "Intruso", "precio": 1}'
 
-# 6. La tienda Premium responde desde su propia celda (header X-Celda: premium-a)
-curl -i http://localhost:8000/v1/tiendas/p1/productos
+# 7. La tienda Premium responde desde su propia celda (header X-Celda: premium-a)
+curl -i -H 'Host: sastreria-ombu.localhost' http://localhost:8000/v1/productos
 ```
+
+## Tests de aislamiento
+
+Tests end-to-end del NFR estrella. Corren contra la plataforma levantada y solo necesitan Node 20 o superior:
+
+```bash
+docker compose up --build -d
+cd tests/aislamiento && npm test
+```
+
+Verifican que un producto cargado en una tienda se ve solo en su subdominio, que un dueño no puede
+cargar en otra tienda (ni estándar ni Premium), que sin token no se puede cargar y que desde el
+subdominio de una tienda no se llega a otra.
 
 ## Estructura
 
 ```
 .
-├── frontend/               SPA en React: vitrina de las tiendas y panel del dueño
+├── frontend/               SPA en React: presentación, panel del dueño y vitrina de cada tienda
 ├── app/                    Monolito modular (NestJS). Se despliega en cada celda.
 │   ├── db/init/            Esquema SQL con row-level security
 │   └── src/
@@ -87,10 +111,11 @@ curl -i http://localhost:8000/v1/tiendas/p1/productos
 │       │   ├── tiendas/    Tiendas e inquilinos (pendiente)
 │       │   └── ventas/     Carrito, pedidos y checkout (pendiente)
 │       └── shared/         Base por tienda, auth OIDC, Problem Details
-├── gateway/                Valida el token y rutea cada tienda a su celda
+├── gateway/                Resuelve la tienda (por subdominio o URL) y la rutea a su celda
 ├── pasarela-mock/          Pasarela de pagos simulada con Idempotency-Key
 ├── infra/keycloak/         Realm con roles y usuarios de prueba
 ├── api/openapi.yaml        Especificación de la API
+├── tests/aislamiento/      Tests end-to-end de aislamiento entre tiendas
 ├── docs/adr/               Decisiones de arquitectura
 └── docker-compose.yml      Toda la plataforma con un comando
 ```
@@ -109,3 +134,4 @@ Ver [`docs/adr/`](docs/adr/). Resumen:
 8. [ADR-008](docs/adr/ADR-008-stack-nestjs-postgresql.md): NestJS + PostgreSQL.
 9. [ADR-009](docs/adr/ADR-009-identificacion-de-tienda-en-la-url.md): la tienda se identifica en la URL.
 10. [ADR-010](docs/adr/ADR-010-frontend-spa-react.md): frontend como SPA en React.
+11. [ADR-011](docs/adr/ADR-011-cada-tienda-en-su-subdominio.md): cada tienda se publica en su propio subdominio.

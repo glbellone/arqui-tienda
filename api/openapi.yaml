@@ -6,12 +6,70 @@ info:
     API pública de la plataforma, expuesta a través del API Gateway.
     Nivel 2 del modelo de madurez de Richardson: recursos, verbos HTTP y códigos de estado.
     Los errores siguen el formato Problem Details (RFC 9457).
+
+    Cada tienda se publica en su propio subdominio (ADR-011). Desde el subdominio de una tienda
+    solo se llega a esa tienda: las rutas de la vitrina (tag Vitrina) no llevan el id, porque el
+    gateway lo resuelve a partir del host y las traduce a /v1/tiendas/{tiendaId}/... (ADR-009).
 servers:
   - url: http://localhost:8000
     description: Gateway local (docker compose)
 tags:
+  - name: Tiendas
   - name: Catálogo
+  - name: Vitrina
+    description: Rutas que se usan desde el subdominio de una tienda, por ejemplo la-yerbera.localhost.
 paths:
+  /v1/tiendas/{tiendaId}:
+    parameters:
+      - $ref: '#/components/parameters/TiendaId'
+    get:
+      tags: [Tiendas]
+      summary: Datos públicos de una tienda
+      description: Público. Lo responde el gateway con su registro, hasta que exista el módulo Tiendas e Inquilinos.
+      responses:
+        '200':
+          description: La tienda
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tienda' }
+        '404': { $ref: '#/components/responses/Problema' }
+  /v1/tienda:
+    servers:
+      - url: http://{tienda}.localhost:8000
+        variables:
+          tienda: { default: la-yerbera, description: Subdominio de la tienda }
+    get:
+      tags: [Vitrina]
+      summary: Datos públicos de la tienda del subdominio
+      responses:
+        '200':
+          description: La tienda
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tienda' }
+        '404': { $ref: '#/components/responses/Problema' }
+  /v1/productos:
+    servers:
+      - url: http://{tienda}.localhost:8000
+        variables:
+          tienda: { default: la-yerbera, description: Subdominio de la tienda }
+    get:
+      tags: [Vitrina]
+      summary: Productos de la tienda del subdominio
+      description: Público. Equivale a /v1/tiendas/{tiendaId}/productos de la tienda dueña del subdominio.
+      responses:
+        '200':
+          description: Productos de la tienda
+          headers:
+            X-Celda:
+              description: Celda que atendió el pedido (pool o una celda Premium)
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Producto' }
+        '404': { $ref: '#/components/responses/Problema' }
   /v1/tiendas/{tiendaId}/productos:
     parameters:
       - $ref: '#/components/parameters/TiendaId'
@@ -83,6 +141,15 @@ components:
       description: Identificador de la tienda. El gateway lo usa para rutear a su celda.
       schema: { type: string, pattern: '^[a-z0-9-]{1,40}$', example: t1 }
   schemas:
+    Tienda:
+      type: object
+      properties:
+        id: { type: string, example: t1 }
+        nombre: { type: string, example: La Yerbera }
+        rubro: { type: string, example: 'Yerbas, mates y bombillas' }
+        plan: { type: string, enum: [Estándar, Premium] }
+        color: { type: string, example: '#C98A12' }
+        url: { type: string, description: Dirección pública de la tienda, example: 'http://la-yerbera.localhost:5173' }
     NuevoProducto:
       type: object
       required: [sku, nombre, precio]
