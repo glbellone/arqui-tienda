@@ -1,3 +1,4 @@
+import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -27,6 +28,15 @@ function problema(res: Response, status: number, title: string, detail: string) 
 }
 
 const app = express();
+
+// El frontend corre en otro origen (localhost:5173): el navegador necesita CORS.
+// Se exponen X-Celda y Location para que la SPA pueda leerlos.
+app.use(
+  cors({
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','),
+    exposedHeaders: ['X-Celda', 'Location'],
+  }),
+);
 
 app.get('/health', (_req, res) => {
   res.json({ estado: 'ok', celdas: Object.keys(celdas) });
