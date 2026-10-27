@@ -1,0 +1,166 @@
+/*
+ * Diseño de la pantalla de login con la identidad de la plataforma.
+ * Usa los mismos colores y tipografías que el frontend (frontend/src/estilos.css).
+ */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Public+Sans:wght@400;500;600&display=swap');
+
+:root {
+  --fondo: #f2f4f7;
+  --superficie: #ffffff;
+  --tinta: #18202b;
+  --tinta-suave: #5b6573;
+  --linea: #d9dee5;
+  --marca: #1f4fd1;
+  --error: #b42318;
+  --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --texto: 'Public Sans', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Fondo liso en lugar de la imagen de Keycloak */
+.login-pf,
+.login-pf body {
+  background: var(--fondo) none !important;
+  color: var(--tinta);
+  font-family: var(--texto);
+}
+
+.login-pf-page {
+  padding-top: clamp(2rem, 10vh, 6rem);
+}
+
+/* Encabezado: el nombre de la plataforma (displayNameHtml del realm) */
+#kc-header {
+  margin-bottom: 1.5rem;
+}
+
+#kc-header-wrapper {
+  font-family: var(--display);
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--tinta);
+  padding: 0;
+  white-space: normal;
+}
+
+.vidriera-detalle {
+  display: block;
+  margin-top: 0.25rem;
+  font-family: var(--texto);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--tinta-suave);
+}
+
+/* Tarjeta del formulario */
+.login-pf-page .card-pf {
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 2rem 2.25rem;
+  background: var(--superficie);
+  border: 1px solid var(--linea);
+  border-top: 4px solid var(--tinta);
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.login-pf-page .login-pf-header {
+  margin-bottom: 1.5rem;
+}
+
+#kc-page-title {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: left;
+  color: var(--tinta);
+}
+
+/* Campos */
+.login-pf-page label,
+.login-pf-page .pf-c-form__label,
+.login-pf-page .control-label {
+  font-family: var(--texto);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--tinta);
+}
+
+.login-pf-page .pf-c-form-control,
+.login-pf-page .form-control {
+  height: auto;
+  padding: 0.55rem 0.7rem;
+  font-family: var(--texto);
+  font-size: 1rem;
+  color: var(--tinta);
+  background: #fff;
+  border: 1px solid var(--linea);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.login-pf-page .pf-c-form-control:focus,
+.login-pf-page .form-control:focus {
+  outline: 3px solid var(--marca);
+  outline-offset: 1px;
+  border-color: var(--linea);
+}
+
+.login-pf-page .pf-c-form-control[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+/* Botón principal, igual que el .boton del frontend */
+#kc-login,
+.login-pf-page .pf-c-button.pf-m-primary,
+.login-pf-page .btn-primary {
+  margin-top: 0.5rem;
+  padding: 0.65rem 1.2rem;
+  font-family: var(--texto);
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--tinta);
+  border: 1px solid var(--tinta);
+  border-radius: 6px;
+  background-image: none;
+}
+
+#kc-login:hover,
+.login-pf-page .pf-c-button.pf-m-primary:hover,
+.login-pf-page .btn-primary:hover {
+  background: #2d3846;
+}
+
+/* Enlaces y opciones */
+.login-pf-page a {
+  color: var(--marca);
+}
+
+#kc-form-options,
+#kc-form-options .checkbox label {
+  font-size: 0.9rem;
+  color: var(--tinta-suave);
+}
+
+/* Mensajes de error y aviso */
+.login-pf-page .alert-error,
+.login-pf-page .pf-c-alert.pf-m-danger {
+  color: var(--error);
+  background: #fff;
+  border: 1px solid var(--error);
+  border-radius: 6px;
+}
+
+.login-pf-page .pf-c-form__helper-text.pf-m-error,
+.login-pf-page #input-error {
+  color: var(--error);
+}
+
+/* Un solo idioma: no hace falta el selector */
+#kc-locale {
+  display: none;
+}
