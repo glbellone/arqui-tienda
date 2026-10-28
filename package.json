@@ -4,7 +4,7 @@
   "private": true,
   "description": "Tiendas online para emprendedores. TP integrador de Arquitectura de Software 1 (UNAHUR), escenario 4B.",
   "scripts": {
-    "test": "npm --prefix tests/aislamiento test"
+    "test": "docker compose up -d --build && npm --prefix tests/aislamiento test"
   },
   "engines": {
     "node": ">=20"

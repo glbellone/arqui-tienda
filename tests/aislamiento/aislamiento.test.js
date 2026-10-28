@@ -1,6 +1,6 @@
 // Tests end-to-end del NFR estrella: aislamiento entre tiendas.
-// Requieren la plataforma levantada: docker compose up --build
-// Uso: cd tests/aislamiento && npm test
+// Uso, desde la raíz del repositorio: npm test
+// Ese comando levanta la plataforma con docker compose; acá se espera a que esté lista antes de empezar.
 
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
@@ -49,6 +49,49 @@ async function login(usuario, clave) {
   return (await res.json()).access_token;
 }
 
+const ESPERA_MAXIMA_MS = 3 * 60 * 1000;
+
+/** ¿Responde 200? Si el servicio todavía no levantó, la conexión falla y cuenta como "todavía no". */
+async function responde(consulta) {
+  try {
+    return (await consulta()).status === 200;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Espera a que Keycloak tenga el realm importado y a que el gateway llegue a las dos celdas.
+ * Recién levantados, los contenedores tardan unos segundos (Keycloak, bastante más).
+ */
+async function esperarPlataforma() {
+  const listos = {
+    'Keycloak': () => responde(() => fetch(`${KEYCLOAK}/realms/tiendas`)),
+    'celda pool': () => responde(() => pedir({ ruta: '/v1/tiendas/t1/productos' })),
+    'celda premium-a': () => responde(() => pedir({ ruta: '/v1/tiendas/p1/productos' })),
+  };
+  const limite = Date.now() + ESPERA_MAXIMA_MS;
+  let avisado = false;
+
+  for (;;) {
+    const pendientes = [];
+    for (const [nombre, estaListo] of Object.entries(listos)) if (!(await estaListo())) pendientes.push(nombre);
+    if (pendientes.length === 0) return;
+
+    if (Date.now() > limite) {
+      throw new Error(
+        `La plataforma no quedó lista en ${ESPERA_MAXIMA_MS / 60000} minutos (falta: ${pendientes.join(', ')}). ` +
+          'Revisá docker compose ps y docker compose logs.',
+      );
+    }
+    if (!avisado) {
+      console.log(`Esperando a que la plataforma esté lista (falta: ${pendientes.join(', ')})…`);
+      avisado = true;
+    }
+    await new Promise((listo) => setTimeout(listo, 2000));
+  }
+}
+
 const sufijo = Date.now().toString(36);
 const producto = (nombre) => ({ sku: `TEST-${nombre}-${sufijo}`, nombre: `${nombre} ${sufijo}`, precio: 1000 });
 
@@ -57,6 +100,7 @@ describe('Aislamiento entre tiendas', () => {
   let cargado;
 
   before(async () => {
+    await esperarPlataforma();
     tokenT1 = await login('duenio.t1', 'duenio123');
     const res = await pedir({ metodo: 'POST', ruta: '/v1/tiendas/t1/productos', token: tokenT1, cuerpo: producto('Mate') });
     assert.equal(res.status, 201, `La carga en t1 debería dar 201: ${JSON.stringify(res.json)}`);

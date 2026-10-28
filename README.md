@@ -127,11 +127,15 @@ curl -i -X POST http://localhost:8000/v1/tiendas/t2/productos \
 
 ## Tests
 
-Con la plataforma levantada, desde la raíz del repositorio:
+Desde la raíz del repositorio:
 
 ```bash
 npm test
 ```
+
+El comando levanta la plataforma (`docker compose up -d --build`), espera a que Keycloak y las dos
+celdas respondan y recién ahí corre los tests. Si ya estaba levantada, solo reconstruye lo que
+cambió. Al terminar la deja corriendo; para bajarla, `docker compose down`.
 
 Son tests de punta a punta que verifican el aislamiento entre tiendas: un producto se ve solo en su
 tienda, un dueño no puede cargar productos en una tienda ajena (ni estándar ni Premium), sin
