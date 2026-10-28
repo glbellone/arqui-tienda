@@ -1,0 +1,103 @@
+/* Página de la plataforma, para emprendedores. Tiene su propio acento, independiente de las tiendas. */
+
+.sitio-plataforma {
+  --acento: #3730a3;
+  --acento-hover: #312e81;
+  --acento-suave: #eef2ff;
+  --acento-medio: #c7d2fe;
+  --acento-tinta: #3730a3;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #eef2ff, var(--fondo) 55%);
+}
+
+.plataforma-barra {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1.25rem clamp(1rem, 4vw, 2rem);
+}
+
+.plataforma-marca {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--acento);
+  font: 700 1.2rem var(--display);
+}
+
+.plataforma-sesion {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.plataforma-portada {
+  max-width: 48rem;
+  margin: clamp(3rem, 10vh, 6rem) auto 3.5rem;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+
+.plataforma-antetitulo {
+  display: inline-block;
+  margin: 0 0 1.25rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: var(--acento-suave);
+  color: var(--acento-tinta);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.plataforma-portada h1 {
+  margin: 0 0 1.25rem;
+  font: 700 clamp(2.4rem, 6vw, 4rem)/1.03 var(--display);
+  letter-spacing: -0.035em;
+}
+
+.plataforma-bajada {
+  max-width: 36ch;
+  margin: 0 auto 2rem;
+  color: var(--tinta-2);
+  font-size: 1.2rem;
+}
+
+.plataforma-beneficios {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  max-width: 68rem;
+  margin: 0 auto 5rem;
+  padding: 0 1.5rem;
+}
+
+.plataforma-beneficios h2 {
+  margin: 0 0 0.4rem;
+  font: 600 1.1rem var(--texto);
+}
+
+.plataforma-beneficios p {
+  margin: 0;
+  color: var(--tinta-suave);
+  font-size: 0.95rem;
+}
+
+.plataforma-pie {
+  margin-top: auto;
+  padding: 2rem;
+  color: var(--tinta-suave);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .plataforma-beneficios {
+    grid-template-columns: 1fr;
+  }
+}

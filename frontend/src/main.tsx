@@ -2,10 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { iniciarAuth } from './auth';
+import { ProveedorToasts } from './componentes/Toasts';
+import Plataforma from './plataforma/Plataforma';
 import { sitioActual } from './sitio';
-import Plataforma from './sitios/Plataforma';
-import Tienda from './sitios/Tienda';
-import './estilos.css';
+import Tienda from './tienda/Tienda';
+import './estilos/base.css';
+import './estilos/tienda.css';
+import './estilos/panel.css';
+import './estilos/plataforma.css';
 
 // Un mismo build sirve la plataforma y todas las tiendas: cuál se muestra depende del host (ADR-011).
 // Keycloak se inicializa una sola vez, antes de renderizar. Si falla, se sigue sin sesión.
@@ -14,7 +18,9 @@ iniciarAuth()
   .finally(() => {
     createRoot(document.getElementById('root')!).render(
       <StrictMode>
-        <BrowserRouter>{sitioActual() === 'tienda' ? <Tienda /> : <Plataforma />}</BrowserRouter>
+        <BrowserRouter>
+          <ProveedorToasts>{sitioActual() === 'tienda' ? <Tienda /> : <Plataforma />}</ProveedorToasts>
+        </BrowserRouter>
       </StrictMode>,
     );
   });

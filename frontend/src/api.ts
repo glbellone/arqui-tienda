@@ -41,13 +41,12 @@ export class ErrorApi extends Error {
   }
 }
 
-export interface Respuesta<T> {
-  datos: T;
-  /** Qué celda atendió el pedido (header X-Celda): pool o una celda Premium. */
-  celda: string | null;
-}
-
-async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<Respuesta<T>> {
+/**
+ * Llama a la API con el token de la sesión, si hay. Los errores llegan como Problem Details.
+ * La celda que atendió cada pedido viaja en el header X-Celda, pero la interfaz no la muestra:
+ * es un detalle de la arquitectura. Para la demo se ve en la pestaña Red del navegador.
+ */
+async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
   const headers = new Headers(opciones.headers);
   const token = await tokenVigente();
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -58,22 +57,23 @@ async function pedir<T>(ruta: string, opciones: RequestInit = {}): Promise<Respu
     res = await fetch(`${API}${ruta}`, { ...opciones, headers });
   } catch {
     throw new ErrorApi({
-      title: 'Sin conexión',
+      title: 'No pudimos conectarnos',
       status: 0,
-      detail: 'No se pudo conectar con la API. Revisá que docker compose esté levantado.',
+      detail: 'Revisá tu conexión y probá de nuevo en unos minutos.',
     });
   }
 
   const cuerpo = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new ErrorApi(cuerpo ?? { title: 'Error', status: res.status, detail: `La API respondió ${res.status}.` });
+    throw new ErrorApi(cuerpo ?? { title: 'Algo salió mal', status: res.status, detail: 'Probá de nuevo en unos minutos.' });
   }
-  return { datos: cuerpo as T, celda: res.headers.get('X-Celda') };
+  return cuerpo as T;
 }
 
 export function aProblema(error: unknown): Problema {
   if (error instanceof ErrorApi) return error.problema;
-  return { title: 'Error inesperado', status: 0, detail: String(error) };
+  console.error(error);
+  return { title: 'Algo salió mal', status: 0, detail: 'Probá de nuevo en unos minutos.' };
 }
 
 // En el subdominio de una tienda las rutas no llevan su id: el gateway la resuelve por el host.
@@ -81,6 +81,7 @@ export function aProblema(error: unknown): Problema {
 export const tiendaActual = {
   datos: () => pedir<Tienda>('/v1/tienda'),
   productos: () => pedir<Producto[]>('/v1/productos'),
+  producto: (productoId: string) => pedir<Producto>(`/v1/productos/${encodeURIComponent(productoId)}`),
   crearProducto: (producto: NuevoProducto) =>
     pedir<Producto>('/v1/productos', { method: 'POST', body: JSON.stringify(producto) }),
 };
@@ -88,6 +89,6 @@ export const tiendaActual = {
 // En la plataforma (sin subdominio) se usa el contrato completo de la API (ADR-009).
 export const buscarTienda = (tiendaId: string) => pedir<Tienda>(`/v1/tiendas/${tiendaId}`);
 
-const formato = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
-export const formatearPrecio = (p: Producto['precio']) =>
-  p.moneda === 'ARS' ? formato.format(p.monto) : `${p.moneda} ${p.monto.toLocaleString('es-AR')}`;
+/** Los ids de producto son UUID: si la URL trae otra cosa, ni hace falta preguntarle a la API. */
+export const esIdDeProducto = (id: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);

@@ -22,7 +22,7 @@ export interface Sesion {
  * cada tienda (cada subdominio) tiene la suya. Si el usuario ya ingresó en otra tienda,
  * Keycloak lo reconoce por su cookie y no le vuelve a pedir la contraseña.
  */
-const CLAVE = 'vidriera.sesion';
+const CLAVE = 'tiendas.sesion';
 
 function guardar() {
   try {
@@ -105,9 +105,11 @@ export async function tokenVigente(): Promise<string | undefined> {
   return keycloak.token;
 }
 
-export const ingresar = () => keycloak.login();
+/** Lleva al login de Keycloak. Al volver, el usuario queda en la misma página (o en la indicada). */
+export const ingresar = (volverA?: string) =>
+  keycloak.login(volverA ? { redirectUri: new URL(volverA, window.location.origin).href } : undefined);
 
-export function salir() {
+export function salir(volverA = '/') {
   olvidar();
-  return keycloak.logout({ redirectUri: window.location.origin });
+  return keycloak.logout({ redirectUri: new URL(volverA, window.location.origin).href });
 }
