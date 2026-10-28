@@ -31,7 +31,7 @@ quien compra ingresa desde una tienda y no tiene por qué saber que hay una plat
 - La contraseña la ve únicamente Keycloak: la SPA y la API solo reciben tokens.
 - El usuario sale del sitio de la tienda para ingresar. El tema propio hace que esa pantalla se vea
   como parte del sitio. Es la misma para todas las tiendas, porque las cuentas son de la plataforma.
-- El claim `tienda_id` permite controlar que un dueño solo opere sobre su tienda.
+- El claim `tienda_id` permite controlar que un dueño solo opere sobre su tienda. El rol lo valida el `AuthGuard`; que sea el dueño de esa tienda lo valida el caso de uso (capa de aplicación), así la regla no depende de HTTP.
 
 ## NFRs afectados
 

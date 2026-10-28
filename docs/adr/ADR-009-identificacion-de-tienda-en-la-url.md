@@ -19,7 +19,7 @@ Vamos a identificar la tienda en el path de la API (`/v1/tiendas/{tiendaId}/...`
 ## Consecuencias
 
 - Funciona igual para compradores anónimos y para dueños.
-- La app verifica que el `tienda_id` del token del dueño coincida con el de la URL.
+- La app verifica, en el caso de uso, que el `tienda_id` del token del dueño coincida con el de la URL.
 - En producción el subdominio se puede traducir a este path en el gateway sin cambiar la app. Eso es lo que hace ADR-011: la dirección pública de cada tienda es su subdominio, y este path queda como contrato interno de la API.
 
 ## NFRs afectados
