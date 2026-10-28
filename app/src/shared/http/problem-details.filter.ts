@@ -12,7 +12,7 @@ const TITULOS: Record<number, string> = {
   500: 'Error interno',
 };
 
-const STATUS_DOMINIO = { invalido: 422, conflicto: 409, 'no-encontrado': 404 } as const;
+const STATUS_DOMINIO = { invalido: 422, conflicto: 409, 'no-encontrado': 404, prohibido: 403 } as const;
 
 /** Todas las respuestas de error salen en formato Problem Details (RFC 9457). */
 @Catch()

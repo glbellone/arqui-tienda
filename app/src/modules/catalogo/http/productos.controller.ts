@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard } from '../../../shared/auth/auth.guard';
 import { Roles } from '../../../shared/auth/roles.decorator';
@@ -41,7 +41,10 @@ export class ProductosController {
     return aDto(await this.consultarProductos.obtener(tiendaId, productoId));
   }
 
-  /** Solo el dueño de esa tienda puede cargar productos en ella (regla de aislamiento). */
+  /**
+   * Requiere el rol duenio. Que sea el dueño de ESTA tienda lo controla el caso de uso
+   * (regla de aislamiento): el controller solo traduce HTTP a un comando.
+   */
   @Post()
   @HttpCode(201)
   @UseGuards(AuthGuard)
@@ -52,10 +55,7 @@ export class ProductosController {
     @UsuarioActual() usuario: Usuario,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (usuario.tiendaId !== tiendaId) {
-      throw new ForbiddenException('Solo podés cargar productos en tu propia tienda');
-    }
-    const producto = await this.crearProducto.ejecutar({ tiendaId, ...(body ?? {}) });
+    const producto = await this.crearProducto.ejecutar({ ...(body ?? {}), tiendaId, solicitante: usuario });
     res.location(`/v1/tiendas/${tiendaId}/productos/${producto.id}`);
     return aDto(producto);
   }

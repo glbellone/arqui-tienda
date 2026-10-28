@@ -1,4 +1,4 @@
-export type TipoErrorDominio = 'invalido' | 'conflicto' | 'no-encontrado';
+export type TipoErrorDominio = 'invalido' | 'conflicto' | 'no-encontrado' | 'prohibido';
 
 /** Error de reglas de negocio. No conoce HTTP: el filtro lo traduce a Problem Details. */
 export class DominioError extends Error {
