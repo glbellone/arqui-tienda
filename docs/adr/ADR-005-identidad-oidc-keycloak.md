@@ -12,7 +12,8 @@ El TP exige OIDC con al menos 2 roles. Hay tres: administrador, dueño de tienda
 Vamos a usar Keycloak como proveedor OIDC, con roles de realm y un claim `tienda_id` en el token de cada dueño.
 
 El login se hace siempre en la pantalla de Keycloak (Authorization Code + PKCE), con un tema propio
-(`infra/keycloak/themes/vidriera`) que le da la identidad visual de la plataforma.
+(`infra/keycloak/themes/tiendas`) con el mismo diseño que el sitio y sin el nombre de la plataforma:
+quien compra ingresa desde una tienda y no tiene por qué saber que hay una plataforma detrás.
 
 ## Alternativas consideradas
 
@@ -29,7 +30,7 @@ El login se hace siempre en la pantalla de Keycloak (Authorization Code + PKCE),
 - Login estándar y desacoplado de la app.
 - La contraseña la ve únicamente Keycloak: la SPA y la API solo reciben tokens.
 - El usuario sale del sitio de la tienda para ingresar. El tema propio hace que esa pantalla se vea
-  como parte de la plataforma, y es la misma para todas las tiendas, porque las cuentas son de la plataforma.
+  como parte del sitio. Es la misma para todas las tiendas, porque las cuentas son de la plataforma.
 - El claim `tienda_id` permite controlar que un dueño solo opere sobre su tienda.
 
 ## NFRs afectados

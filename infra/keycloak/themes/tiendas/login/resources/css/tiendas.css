@@ -1,6 +1,6 @@
 /*
- * Diseño de la pantalla de login con la identidad de la plataforma.
- * Usa los mismos colores y tipografías que el frontend (frontend/src/estilos.css).
+ * Diseño de la pantalla de login: neutro, con los mismos colores y tipografías que el frontend
+ * (frontend/src/estilos.css), para que se sienta parte del sitio.
  */
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Public+Sans:wght@400;500;600&display=swap');
 
@@ -28,30 +28,12 @@
   padding-top: clamp(2rem, 10vh, 6rem);
 }
 
-/* Encabezado: el nombre de la plataforma (displayNameHtml del realm) */
+/*
+ * Sin encabezado con el nombre de la plataforma: quien compra ingresa desde una tienda y no
+ * tiene por qué saber que hay una plataforma detrás.
+ */
 #kc-header {
-  margin-bottom: 1.5rem;
-}
-
-#kc-header-wrapper {
-  font-family: var(--display);
-  font-size: 2.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  text-transform: none;
-  color: var(--tinta);
-  padding: 0;
-  white-space: normal;
-}
-
-.vidriera-detalle {
-  display: block;
-  margin-top: 0.25rem;
-  font-family: var(--texto);
-  font-size: 0.95rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  color: var(--tinta-suave);
+  display: none;
 }
 
 /* Tarjeta del formulario */

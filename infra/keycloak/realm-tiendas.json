@@ -1,9 +1,8 @@
 {
   "realm": "tiendas",
   "enabled": true,
-  "displayName": "Vidriera",
-  "displayNameHtml": "Vidriera<span class=\"vidriera-detalle\">Tiendas online para emprendedores</span>",
-  "loginTheme": "vidriera",
+  "displayName": "Tiendas online",
+  "loginTheme": "tiendas",
   "internationalizationEnabled": true,
   "supportedLocales": [
     "es"

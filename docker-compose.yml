@@ -93,7 +93,7 @@ services:
     volumes:
       - ./infra/keycloak/realm-tiendas.json:/opt/keycloak/data/import/realm-tiendas.json:ro
       # Tema propio de la pantalla de login (ADR-005). En start-dev no se cachea: los cambios se ven al recargar.
-      - ./infra/keycloak/themes/vidriera:/opt/keycloak/themes/vidriera:ro
+      - ./infra/keycloak/themes/tiendas:/opt/keycloak/themes/tiendas:ro
 
   # --- Sistema externo simulado (ADR-007) ---
   pasarela-mock:
