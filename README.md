@@ -43,11 +43,11 @@ Keycloak importa el realm (usuarios y roles) solo cuando se crea el contenedor. 
 
 ## Demo desde el navegador
 
-1. Entrá a http://la-yerbera.localhost:5173: es la vitrina de La Yerbera, sin rastro de otras tiendas. Está vacía y el sello dice que la atendió la celda `pool`.
-2. **Ingresar** con `duenio.t1` / `duenio123`: como es el dueño, aparece el botón **Panel** (http://la-yerbera.localhost:5173/panel).
-3. Cargá un producto: aparece en la vitrina de La Yerbera y en ninguna otra.
+1. Entrá a http://la-yerbera.localhost:5173: es la vitrina de La Yerbera, sin rastro de otras tiendas. Está vacía. El comprador no ve el plan ni la celda: para la demo, en la pestaña **Red** del navegador, la respuesta de `/api/v1/productos` trae el header `X-Celda: pool`.
+2. **Ingresar** con `duenio.t1` / `duenio123`: como es el dueño, aparece el botón **Administrar tienda**, que lleva al panel (http://la-yerbera.localhost:5173/panel).
+3. En el panel, **Productos → Nuevo producto**: cargalo y aparece en la vitrina de La Yerbera, y en ninguna otra.
 4. Abrí http://ceramica-nandu.localhost:5173 con la misma sesión: Keycloak no te pide la contraseña, pero no aparece el botón del panel, porque no sos el dueño. Si entrás a `/panel` a mano, te frena.
-5. Abrí http://sastreria-ombu.localhost:5173: el sello dice `premium-a`, su celda dedicada. Ingresá con `duenio.p1` para cargarle productos.
+5. Abrí http://sastreria-ombu.localhost:5173: el header `X-Celda` dice `premium-a`, su celda dedicada. Ingresá con `duenio.p1`: en su panel aparece la marca **Plan Premium**.
 
 El intento de un dueño de cargar productos en otra tienda (403) lo cubren los tests de aislamiento.
 
