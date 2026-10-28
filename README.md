@@ -7,25 +7,13 @@ misma tienda.
 > Trabajo práctico integrador de Arquitectura de Software 1 (UNAHUR), escenario 4B.
 > La documentación de arquitectura está en [`docs/`](docs/).
 
-## Qué se puede hacer
+## Requisitos
 
-**Como comprador**, en la tienda:
-
-- Recorrer el catálogo, buscar productos y ordenarlos por precio o nombre.
-- Ver el detalle de cada producto.
-- Armar el carrito y completar los datos de la compra. El pago online todavía no está disponible.
-
-**Como dueño**, en el panel de tu tienda (`/panel`):
-
-- Ver un resumen de la tienda y los primeros pasos.
-- Ver los productos publicados y cargar productos nuevos.
-- Consultar los pedidos (todavía no hay) y los datos de la tienda y del plan.
-
-El ingreso es con Keycloak. Un dueño solo puede administrar su propia tienda.
+- Docker con Docker Compose.
+- Node 20 o superior, solo para correr los tests.
+- Chrome o Firefox: resuelven las direcciones `*.localhost` de las tiendas sin tocar el archivo `hosts`.
 
 ## Cómo levantarlo
-
-Requisitos: Docker con Docker Compose. Para correr los tests, además, Node 20 o superior.
 
 ```bash
 docker compose up --build
@@ -43,8 +31,6 @@ más que el resto para estar listo.
 | Sastrería Ombú | http://sastreria-ombu.localhost:5173 | Premium |
 
 El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localhost:5173/panel.
-
-Usá Chrome o Firefox: resuelven las direcciones `*.localhost` solos, sin tocar el archivo `hosts`.
 
 ### Otros servicios
 
@@ -82,21 +68,6 @@ Los servicios son `frontend`, `gateway`, `app-pool`, `app-premium-a`, `db-pool`,
 Keycloak importa usuarios y roles solo al crear su contenedor: por eso esos cambios necesitan el
 `down`. Los cambios en el diseño de la pantalla de login, en cambio, se ven con solo recargar.
 
-## Recorrido sugerido
-
-1. Abrí [La Yerbera](http://la-yerbera.localhost:5173). Todavía no tiene productos.
-2. Tocá **Ingresar** y entrá con `duenio.t1` / `duenio123`. Como sos el dueño, aparece el botón
-   **Administrar tienda**.
-3. En el panel, andá a **Productos → Nuevo producto**, completá los datos y publicalo. Volvé a la
-   tienda: el producto ya está.
-4. Abrí [Cerámica Ñandú](http://ceramica-nandu.localhost:5173). El producto no aparece y tampoco el
-   botón del panel: tu usuario no administra esta tienda. Si entrás a `/panel` a mano, te frena.
-5. Abrí [Sastrería Ombú](http://sastreria-ombu.localhost:5173) e ingresá con `duenio.p1`: en su
-   panel aparece la marca **Plan Premium**.
-
-Para ver qué parte del sistema atendió cada pedido, abrí la pestaña **Red** del navegador: las
-respuestas de `/api/...` traen el header `X-Celda` (`pool` o `premium-a`).
-
 ## Usar la API
 
 La especificación está en [`api/openapi.yaml`](api/openapi.yaml). Los errores llegan en formato
@@ -127,19 +98,11 @@ curl -i -X POST http://localhost:8000/v1/tiendas/t2/productos \
 
 ## Tests
 
-Desde la raíz del repositorio:
-
 ```bash
 npm test
 ```
 
-El comando levanta la plataforma (`docker compose up -d --build`), espera a que Keycloak y las dos
-celdas respondan y recién ahí corre los tests. Si ya estaba levantada, solo reconstruye lo que
-cambió. Al terminar la deja corriendo; para bajarla, `docker compose down`.
-
-Son tests de punta a punta que verifican el aislamiento entre tiendas: un producto se ve solo en su
-tienda, un dueño no puede cargar productos en una tienda ajena (ni estándar ni Premium), sin
-ingresar no se puede cargar nada y desde la dirección de una tienda no se llega a otra.
+Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiendas.
 
 ## Estructura del repositorio
 
