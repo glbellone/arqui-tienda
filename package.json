@@ -1,0 +1,12 @@
+{
+  "name": "arqui-tienda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiendas online para emprendedores. TP integrador de Arquitectura de Software 1 (UNAHUR), escenario 4B.",
+  "scripts": {
+    "test": "npm --prefix tests/aislamiento test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
