@@ -8,5 +8,13 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@nestjs/microservices": "^12.3.2",
+    "amqp-connection-manager": "^5.0.1",
+    "amqplib": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6"
   }
 }

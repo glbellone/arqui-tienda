@@ -9,6 +9,7 @@ x-app-comun: &app-comun
     OIDC_ISSUER: http://localhost:8080/realms/tiendas
     OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
     PASARELA_URL: http://pasarela-mock:4000
+    RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
 
 x-db-comun: &db-comun
   image: postgres:16-alpine
@@ -60,6 +61,8 @@ services:
     depends_on:
       db-pool:
         condition: service_healthy
+      rabbitmq: # Rabbit debe levantar antes
+        condition: service_started
 
   db-pool:
     <<: *db-comun
@@ -74,6 +77,8 @@ services:
     depends_on:
       db-premium-a:
         condition: service_healthy
+      rabbitmq: # Debe levantar antes
+        condition: service_started
 
   db-premium-a:
     <<: *db-comun

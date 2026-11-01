@@ -6,6 +6,7 @@ import { Producto } from '../domain/producto';
 import { PRODUCTO_REPOSITORY, type ProductoRepository } from '../domain/producto.repository';
 import { Sku } from '../domain/sku';
 import { TiendaId } from '../domain/tienda-id';
+import { AnalyticsService } from '../../analitica/analytics.service'; // <-- Importado
 
 export interface CrearProductoComando {
   /** Quién carga el producto: tiene que ser el dueño de la tienda. */
@@ -20,7 +21,10 @@ export interface CrearProductoComando {
 /** Caso de uso mínimo del TP: el dueño carga un producto en su tienda. */
 @Injectable()
 export class CrearProducto {
-  constructor(@Inject(PRODUCTO_REPOSITORY) private readonly productos: ProductoRepository) {}
+  constructor(
+    @Inject(PRODUCTO_REPOSITORY) private readonly productos: ProductoRepository,
+    private readonly analyticsService: AnalyticsService, // <-- Inyectado
+  ) {}
 
   async ejecutar(comando: CrearProductoComando): Promise<Producto> {
     const tiendaId = TiendaId.crear(comando.tiendaId);
@@ -38,7 +42,16 @@ export class CrearProducto {
       nombre: comando.nombre,
       precio: Precio.crear(comando.precio, comando.moneda),
     });
+    
     await this.productos.guardar(producto);
+
+    // Emitir el evento de analítica a RabbitMQ tras guardar con éxito
+    await this.analyticsService.emitirProductoCreado({
+      tiendaId: producto.tiendaId.valor,
+      productoId: producto.id,
+      nombre: producto.nombre,
+    });
+
     return producto;
   }
 }

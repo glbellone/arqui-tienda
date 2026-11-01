@@ -4,9 +4,10 @@ import { CrearProducto } from './application/crear-producto';
 import { PRODUCTO_REPOSITORY } from './domain/producto.repository';
 import { ProductosController } from './http/productos.controller';
 import { PgProductoRepository } from './infrastructure/pg-producto.repository';
-
+import { AnaliticaModule } from '../analitica/analitica.module';
 /** Bounded context Catálogo: los productos y precios de cada tienda. */
 @Module({
+  imports: [AnaliticaModule],
   controllers: [ProductosController],
   providers: [CrearProducto, ConsultarProductos, { provide: PRODUCTO_REPOSITORY, useClass: PgProductoRepository }],
 })
