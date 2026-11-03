@@ -92,3 +92,15 @@ export const buscarTienda = (tiendaId: string) => pedir<Tienda>(`/v1/tiendas/${t
 /** Los ids de producto son UUID: si la URL trae otra cosa, ni hace falta preguntarle a la API. */
 export const esIdDeProducto = (id: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+export interface AnaliticaTienda {
+  tiendaId: string;
+  totalProductos: number;
+  totalPedidosConfirmados: number;
+  montoTotalVentasCentavos: number;
+  actualizadoEn: string;
+}
+
+export const adminAnalitica = {
+  totalesPorTienda: () => pedir<AnaliticaTienda[]>('/v1/admin/analitica/totales-por-tienda'),
+};

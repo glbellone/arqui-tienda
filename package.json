@@ -12,9 +12,11 @@
   "dependencies": {
     "@nestjs/microservices": "^12.3.2",
     "amqp-connection-manager": "^5.0.1",
-    "amqplib": "^2.2.0"
+    "amqplib": "^2.2.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6"
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1"
   }
 }

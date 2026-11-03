@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { buscarTienda } from '../api';
 import { ingresar, salir, sesionActual } from '../auth';
 import Icono, { type NombreIcono } from '../componentes/Icono';
 import { useTitulo } from '../hooks/useTitulo';
+import AdminAnalitica from './AdminAnalitica';
 
 /** Nombre provisorio de la plataforma. Solo aparece en esta página, que es para emprendedores. */
 export const NOMBRE_PLATAFORMA = 'Tiendas online';
@@ -25,8 +27,18 @@ const BENEFICIOS: { icono: NombreIcono; titulo: string; texto: string }[] = [
   },
 ];
 
-/** Página de la plataforma, para emprendedores. A propósito no lista tiendas. */
+/** Componente principal de la plataforma que maneja las rutas */
 export default function Plataforma() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePlataforma />} />
+      <Route path="/admin/analitica" element={<AdminAnalitica />} />
+    </Routes>
+  );
+}
+
+/** Página de la plataforma (Landing para emprendedores). */
+function HomePlataforma() {
   useTitulo(NOMBRE_PLATAFORMA);
   const sesion = useMemo(() => sesionActual(), []);
   const [urlPanel, setUrlPanel] = useState<string | null>(null);

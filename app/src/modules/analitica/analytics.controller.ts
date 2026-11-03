@@ -1,25 +1,32 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
+import { AnaliticaProcesadorService } from './analitica-procesador.service';
 
 @Controller()
 export class AnalyticsController {
+  constructor(private readonly procesadorService: AnaliticaProcesadorService) {}
 
   @EventPattern('pedido_confirmado')
-  handlePedidoConfirmado(@Payload() data: any) {
+  async handlePedidoConfirmado(@Payload() data: any) {
     console.log(' [Analítica] Evento recibido -> pedido_confirmado:', data);
-    
-    // Aquí puedes procesar la información recibida:
-    // data.celda -> te dirá si vino de 'pool' o 'premium-a'
-    // data.tiendaId -> identificador de la tienda
-    // data.total -> monto del pedido
-    
-    // TODO: Guardar o sumar estos datos en tu base de datos de analítica
+    const { tiendaId, total } = data;
+    if (tiendaId) {
+      const montoCentavos = total || 0;
+      await this.procesadorService.registrarPedidoConfirmado(tiendaId, montoCentavos);
+    }
   }
 
   @EventPattern('producto_creado')
-  handleProductoCreado(@Payload() data: any) {
+  async handleProductoCreado(@Payload() data: any) {
     console.log(' [Analítica] Evento recibido -> producto_creado:', data);
-    
-    // TODO: Actualizar el contador de productos de la tienda correspondiente
+    const { tiendaId } = data;
+    if (tiendaId) {
+      await this.procesadorService.registrarProductoCreado(tiendaId);
+    }
+  }
+
+  @Get('/v1/admin/analitica/totales-por-tienda')
+  async obtenerTotales() {
+    return await this.procesadorService.obtenerTotales();
   }
 }

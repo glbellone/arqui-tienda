@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
+import { AnaliticaProcesadorService } from './analitica-procesador.service';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { AnalyticsService } from './analytics.service';
     ]),
   ],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService],
-  exports: [AnalyticsService], // Exportado por si VentasModule o CatalogoModule necesitan inyectarlo para emitir eventos
+  providers: [AnalyticsService,AnaliticaProcesadorService],
+  exports: [AnalyticsService,AnaliticaProcesadorService], // Exportado por si VentasModule o CatalogoModule necesitan inyectarlo para emitir eventos
 })
 export class AnaliticaModule {}

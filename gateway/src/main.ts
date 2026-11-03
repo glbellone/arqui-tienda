@@ -73,8 +73,28 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// 3. Resolver en qué celda vive la tienda de la URL.
+// 3. Interceptar rutas administrativas globales (como Analítica) antes del mapeo de tiendas.
 app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log('--- GATEWAY REQ PATH:', req.path, '| URL:', req.url);
+  
+  if (req.url.includes('/admin/analitica')) {
+    const destinoAnalitica = celdas['pool'] ?? celdas['premium-a'];
+    if (!destinoAnalitica) return problema(res, 500, 'Error de configuración', 'Celda de analítica no encontrada');
+
+    // Seteamos la URL limpia que espera el backend
+    req.url = '/v1/admin/analitica/totales-por-tienda';
+    (req as RequestConDestino).destino = destinoAnalitica;
+    
+    // Pasamos directo al proxy sin ejecutar la validación de tiendas del paso 4
+    return next('route');
+  }
+  next();
+});
+
+// 4. Resolver en qué celda vive la tienda de la URL (si no se asignó destino antes).
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if ((req as RequestConDestino).destino) return next();
+
   const match = req.path.match(/^\/v1\/tiendas\/([^/]+)(\/.*)?$/);
   if (!match) return problema(res, 404, 'No encontrado', 'Ruta inexistente');
 
@@ -93,7 +113,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// 4. Reenviar a esa celda.
+// 5. Reenviar a esa celda.
 app.use(
   createProxyMiddleware({
     target: 'http://celda-no-resuelta',
