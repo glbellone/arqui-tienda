@@ -8,16 +8,23 @@ export const GATEWAY = new URL(process.env.GATEWAY_URL ?? 'http://localhost:8000
 const KEYCLOAK = process.env.KEYCLOAK_URL ?? 'http://localhost:8080';
 const DOMINIO = process.env.DOMINIO_BASE ?? 'localhost';
 
-/** Pedido HTTP al gateway con un Host a elección: así se simula entrar por el subdominio de una tienda. */
-export function pedir({ metodo = 'GET', ruta, host = GATEWAY.host, token, cuerpo }) {
-  const datos = cuerpo ? JSON.stringify(cuerpo) : undefined;
-  const headers = { Host: host };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  if (datos) Object.assign(headers, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(datos) });
+/** Corta cualquier pedido que tarde demasiado. El timer, además, mantiene vivo el proceso mientras se espera. */
+const LIMITE_PEDIDO_MS = 10_000;
+
+/**
+ * Pedido HTTP con node:http. No se usa fetch: en algunas versiones de Node, si el puerto acepta la
+ * conexión y la corta (lo que hace Docker mientras un contenedor arranca), la promesa de fetch
+ * queda pendiente para siempre y el test runner termina con "Promise resolution is still pending".
+ */
+function llamar(url, { metodo = 'GET', host, headers = {}, cuerpo } = {}) {
+  const destino = new URL(url);
+  const datos = cuerpo === undefined ? undefined : typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo);
+  const encabezados = { ...headers, Host: host ?? destino.host };
+  if (datos !== undefined) encabezados['Content-Length'] = Buffer.byteLength(datos);
 
   return new Promise((resolver, rechazar) => {
     const req = request(
-      { hostname: GATEWAY.hostname, port: GATEWAY.port, path: ruta, method: metodo, headers },
+      { hostname: destino.hostname, port: destino.port, path: destino.pathname + destino.search, method: metodo, headers: encabezados },
       (res) => {
         let texto = '';
         res.on('data', (parte) => (texto += parte));
@@ -28,23 +35,34 @@ export function pedir({ metodo = 'GET', ruta, host = GATEWAY.host, token, cuerpo
           } catch {}
           resolver({ status: res.statusCode, headers: res.headers, json });
         });
+        res.on('error', rechazar);
       },
     );
+    req.setTimeout(LIMITE_PEDIDO_MS, () => req.destroy(new Error(`Sin respuesta de ${destino.host} en ${LIMITE_PEDIDO_MS} ms`)));
     req.on('error', rechazar);
-    if (datos) req.write(datos);
+    if (datos !== undefined) req.write(datos);
     req.end();
   });
+}
+
+/** Pedido al gateway con un Host a elección: así se simula entrar por el subdominio de una tienda. */
+export function pedir({ metodo = 'GET', ruta, host = GATEWAY.host, token, cuerpo }) {
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (cuerpo !== undefined) headers['Content-Type'] = 'application/json';
+  return llamar(new URL(ruta, GATEWAY).href, { metodo, host, headers, cuerpo });
 }
 
 export const enTienda = (subdominio) => `${subdominio}.${DOMINIO}`;
 
 export async function login(usuario, clave) {
-  const res = await fetch(`${KEYCLOAK}/realms/tiendas/protocol/openid-connect/token`, {
-    method: 'POST',
-    body: new URLSearchParams({ grant_type: 'password', client_id: 'tiendas-web', username: usuario, password: clave }),
+  const res = await llamar(`${KEYCLOAK}/realms/tiendas/protocol/openid-connect/token`, {
+    metodo: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    cuerpo: new URLSearchParams({ grant_type: 'password', client_id: 'tiendas-web', username: usuario, password: clave }).toString(),
   });
-  assert.equal(res.status, 200, `No se pudo loguear ${usuario}`);
-  return (await res.json()).access_token;
+  assert.equal(res.status, 200, `No se pudo loguear ${usuario}: ${JSON.stringify(res.json)}`);
+  return res.json.access_token;
 }
 
 const ESPERA_MAXIMA_MS = 3 * 60 * 1000;
@@ -64,7 +82,7 @@ async function responde(consulta, estado = 200) {
  */
 export async function esperarPlataforma() {
   const listos = {
-    'Keycloak': () => responde(() => fetch(`${KEYCLOAK}/realms/tiendas`)),
+    'Keycloak': () => responde(() => llamar(`${KEYCLOAK}/realms/tiendas`)),
     'celda pool': () => responde(() => pedir({ ruta: '/v1/tiendas/t1/productos' })),
     'celda premium-a': () => responde(() => pedir({ ruta: '/v1/tiendas/p1/productos' })),
     // Sin token, Analítica responde 401: alcanza para saber que está levantada.
