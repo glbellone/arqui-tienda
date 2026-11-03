@@ -15,6 +15,9 @@ const dominioBase = process.env.DOMINIO_BASE ?? 'localhost';
 /** Plantilla de la URL pública de una tienda, para que el panel pueda enlazarla. */
 const urlPublica = process.env.URL_PUBLICA_TIENDA ?? 'http://{subdominio}.localhost:5173';
 
+/** Servicio de Analítica (ADR-006): atiende las rutas /v1/admin/ de toda la plataforma. */
+const analitica = process.env.ANALITICA_URL;
+
 const jwks = createRemoteJWKSet(
   new URL(process.env.OIDC_JWKS_URL ?? 'http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs'),
 );
@@ -73,28 +76,18 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// 3. Interceptar rutas administrativas globales (como Analítica) antes del mapeo de tiendas.
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log('--- GATEWAY REQ PATH:', req.path, '| URL:', req.url);
-  
-  if (req.url.includes('/admin/analitica')) {
-    const destinoAnalitica = celdas['pool'] ?? celdas['premium-a'];
-    if (!destinoAnalitica) return problema(res, 500, 'Error de configuración', 'Celda de analítica no encontrada');
-
-    // Seteamos la URL limpia que espera el backend
-    req.url = '/v1/admin/analitica/totales-por-tienda';
-    (req as RequestConDestino).destino = destinoAnalitica;
-    
-    // Pasamos directo al proxy sin ejecutar la validación de tiendas del paso 4
-    return next('route');
-  }
+// 3. Las rutas de administración de la plataforma no son de ninguna tienda: van a Analítica.
+//    Llegan solo desde el dominio de la plataforma; en el subdominio de una tienda el paso 2 ya
+//    las tradujo a /v1/tiendas/{id}/..., así que desde una tienda no se alcanzan.
+app.use('/v1/admin', (req: Request, res: Response, next: NextFunction) => {
+  if (!analitica) return problema(res, 503, 'No disponible', 'El servicio de Analítica no está configurado');
+  (req as RequestConDestino).destino = analitica;
   next();
 });
 
-// 4. Resolver en qué celda vive la tienda de la URL (si no se asignó destino antes).
+// 4. Resolver en qué celda vive la tienda de la URL.
 app.use((req: Request, res: Response, next: NextFunction) => {
   if ((req as RequestConDestino).destino) return next();
-
   const match = req.path.match(/^\/v1\/tiendas\/([^/]+)(\/.*)?$/);
   if (!match) return problema(res, 404, 'No encontrado', 'Ruta inexistente');
 
@@ -113,7 +106,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// 5. Reenviar a esa celda.
+// 5. Reenviar al destino: la celda de la tienda o Analítica.
 app.use(
   createProxyMiddleware({
     target: 'http://celda-no-resuelta',
