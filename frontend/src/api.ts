@@ -93,14 +93,14 @@ export const buscarTienda = (tiendaId: string) => pedir<Tienda>(`/v1/tiendas/${t
 export const esIdDeProducto = (id: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-export interface AnaliticaTienda {
+/** Totales de una tienda según el servicio de Analítica (ADR-006). */
+export interface EstadisticaTienda {
   tiendaId: string;
-  totalProductos: number;
-  totalPedidosConfirmados: number;
-  montoTotalVentasCentavos: number;
+  productos: number;
+  pedidosConfirmados: number;
+  ventasCentavos: number;
   actualizadoEn: string;
 }
 
-export const adminAnalitica = {
-  totalesPorTienda: () => pedir<AnaliticaTienda[]>('/v1/admin/analitica/totales-por-tienda'),
-};
+/** Estadísticas de toda la plataforma. Solo responde al rol admin. */
+export const estadisticas = () => pedir<EstadisticaTienda[]>('/v1/admin/estadisticas');
