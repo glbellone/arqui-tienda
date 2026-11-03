@@ -14,11 +14,32 @@ servers:
   - url: http://localhost:8000
     description: Gateway local (docker compose)
 tags:
+  - name: Administración
+    description: Rutas del dominio de la plataforma, solo para el rol admin. Las atiende el servicio de Analítica (ADR-006).
   - name: Tiendas
   - name: Catálogo
   - name: Vitrina
     description: Rutas que se usan desde el subdominio de una tienda, por ejemplo la-yerbera.localhost.
 paths:
+  /v1/admin/estadisticas:
+    get:
+      tags: [Administración]
+      summary: Totales por tienda de toda la plataforma
+      description: |
+        Requiere el rol admin. Los totales se arman con los eventos que publican las celdas,
+        así que tienen consistencia eventual. Desde el subdominio de una tienda esta ruta no existe.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: Totales por tienda
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EstadisticaTienda' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
   /v1/tiendas/{tiendaId}:
     parameters:
       - $ref: '#/components/parameters/TiendaId'
@@ -141,6 +162,14 @@ components:
       description: Identificador de la tienda. El gateway lo usa para rutear a su celda.
       schema: { type: string, pattern: '^[a-z0-9-]{1,40}$', example: t1 }
   schemas:
+    EstadisticaTienda:
+      type: object
+      properties:
+        tiendaId: { type: string, example: t1 }
+        productos: { type: integer, example: 6 }
+        pedidosConfirmados: { type: integer, example: 5 }
+        ventasCentavos: { type: integer, description: Total vendido en centavos, example: 14320000 }
+        actualizadoEn: { type: string, format: date-time }
     Tienda:
       type: object
       properties:
