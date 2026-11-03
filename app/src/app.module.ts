@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from './shared/db/database.module';
+import { EventosModule } from './shared/infrastructure/eventos/eventos.module';
 import { HealthController } from './shared/http/health.controller';
 import { CatalogoModule } from './modules/catalogo/catalogo.module';
 import { PagosModule } from './modules/pagos/pagos.module';
 import { TiendasModule } from './modules/tiendas/tiendas.module';
 import { VentasModule } from './modules/ventas/ventas.module';
-import { AnaliticaModule } from './modules/analitica/analitica.module';
 
 // Un módulo por bounded context (ver docs/adr/ADR-002).
 @Module({
-  imports: [DatabaseModule, CatalogoModule, TiendasModule, VentasModule, PagosModule, AnaliticaModule],
+  imports: [DatabaseModule, EventosModule, CatalogoModule, TiendasModule, VentasModule, PagosModule],
   controllers: [HealthController],
 })
 export class AppModule {}

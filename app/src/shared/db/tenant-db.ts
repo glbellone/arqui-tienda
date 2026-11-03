@@ -26,10 +26,4 @@ export class TenantDb {
       cliente.release();
     }
   }
-  /**
-   * Ejecuta una consulta SQL directa (utilizado por el background worker de analítica y reportes de admin).
-   */
-  async query(text: string, params?: any[]) {
-    return this.pool.query(text, params);
-  }
 }

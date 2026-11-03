@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { PUBLICADOR_EVENTOS, type PublicadorDeEventos } from '../../../shared/application/eventos';
 import type { Solicitante } from '../../../shared/application/solicitante';
 import { DominioError } from '../../../shared/domain/dominio.error';
 import { Precio } from '../domain/precio';
@@ -6,7 +7,6 @@ import { Producto } from '../domain/producto';
 import { PRODUCTO_REPOSITORY, type ProductoRepository } from '../domain/producto.repository';
 import { Sku } from '../domain/sku';
 import { TiendaId } from '../domain/tienda-id';
-import { AnalyticsService } from '../../analitica/analytics.service'; // <-- Importado
 
 export interface CrearProductoComando {
   /** Quién carga el producto: tiene que ser el dueño de la tienda. */
@@ -23,7 +23,7 @@ export interface CrearProductoComando {
 export class CrearProducto {
   constructor(
     @Inject(PRODUCTO_REPOSITORY) private readonly productos: ProductoRepository,
-    private readonly analyticsService: AnalyticsService, // <-- Inyectado
+    @Inject(PUBLICADOR_EVENTOS) private readonly eventos: PublicadorDeEventos,
   ) {}
 
   async ejecutar(comando: CrearProductoComando): Promise<Producto> {
@@ -42,16 +42,10 @@ export class CrearProducto {
       nombre: comando.nombre,
       precio: Precio.crear(comando.precio, comando.moneda),
     });
-    
     await this.productos.guardar(producto);
 
-    // Emitir el evento de analítica a RabbitMQ tras guardar con éxito
-    await this.analyticsService.emitirProductoCreado({
-      tiendaId: producto.tiendaId.valor,
-      productoId: producto.id,
-      nombre: producto.nombre,
-    });
-
+    // Otros contextos (Analítica) se enteran por un evento: Catálogo no sabe quién escucha.
+    this.eventos.publicar({ tipo: 'producto.creado', tiendaId: tiendaId.valor, productoId: producto.id });
     return producto;
   }
 }
