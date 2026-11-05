@@ -61,8 +61,8 @@ El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localho
 | Aplicar cambios de código de un servicio | `docker compose up -d --build <servicio>` |
 | Aplicar cambios en usuarios o roles de Keycloak | `docker compose down && docker compose up --build` |
 | Ver los logs de un servicio | `docker compose logs -f <servicio>` |
-| Bajar todo | `docker compose down --remove-orphans` |
-| Bajar todo y borrar los datos | `docker compose down -v --remove-orphans` |
+| Frenar todo sin perder datos | `docker compose stop` (y después `docker compose up -d`) |
+| Borrar todo y empezar de cero | `docker compose down -v --remove-orphans` |
 
 Los servicios son `frontend`, `gateway`, `tiendas`, `db-tiendas`, `app-pool`, `app-premium-a`, `db-pool`,
 `db-premium-a`, `analitica`, `db-analitica`, `keycloak`, `pasarela-mock` y `rabbitmq`. El servicio
@@ -71,6 +71,12 @@ Los servicios son `frontend`, `gateway`, `tiendas`, `db-tiendas`, `app-pool`, `a
 Cuando una tienda pasa a Premium, la plataforma crea su propia celda con la API de Docker: dos
 contenedores más (`app-premium-<id>` y `db-premium-<id>`) que no figuran en `docker-compose.yml`.
 Por eso, para bajar todo hace falta `--remove-orphans`: si no, quedan andando y la red no se puede borrar.
+
+Las bases no tienen volúmenes con nombre: `docker compose down` (aun sin `-v`) vuelve todo a cero, con
+solo las tiendas de ejemplo, y Keycloak pierde los dueños creados desde la administración. Para apagar
+sin perder las tiendas creadas, usá `docker compose stop`. Ese comando no frena las celdas Premium
+creadas por la plataforma, porque no están en el compose; si las querés frenar también:
+`docker stop $(docker ps -q --filter label=tiendas.celda)`, y al volver, `docker start` con los mismos.
 
 Keycloak importa usuarios y roles solo al crear su contenedor: por eso esos cambios necesitan el
 `down`. Los cambios en el diseño de la pantalla de login, en cambio, se ven con solo recargar.
