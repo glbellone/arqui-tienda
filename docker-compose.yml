@@ -9,6 +9,7 @@ x-app-comun: &app-comun
     OIDC_ISSUER: http://localhost:8080/realms/tiendas
     OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
     PASARELA_URL: http://pasarela-mock:4000
+    RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
 
 x-db-comun: &db-comun
   image: postgres:16-alpine
@@ -46,9 +47,12 @@ services:
       URL_PUBLICA_TIENDA: http://{subdominio}.localhost:5173
       OIDC_ISSUER: http://localhost:8080/realms/tiendas
       OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
+      # Las rutas /v1/admin/ van al servicio de Analítica (ADR-006).
+      ANALITICA_URL: http://analitica:3000
     depends_on:
       - app-pool
       - app-premium-a
+      - analitica
 
   # --- Celda pool: tiendas estándar, base compartida con row-level security ---
   app-pool:
@@ -57,6 +61,7 @@ services:
       <<: *app-env
       CELDA: pool
       DB_URL: postgres://app_user:app_pass@db-pool:5432/tiendas
+    # No depende de RabbitMQ: si el broker no está, la celda atiende igual y reintenta publicar (ADR-006).
     depends_on:
       db-pool:
         condition: service_healthy
@@ -102,9 +107,42 @@ services:
     ports:
       - "4000:4000"
 
-  # --- Broker de eventos para Analítica (ADR-006). Todavía no lo usa ningún servicio. ---
+  # --- Broker de eventos (ADR-006): las celdas publican, Analítica escucha ---
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     restart: unless-stopped
     ports:
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      retries: 20
+
+  # --- Analítica (ADR-006): servicio aparte con su propia base, solo totales por tienda ---
+  analitica:
+    build: ./analitica
+    restart: unless-stopped
+    environment:
+      DB_URL: postgres://postgres:postgres@db-analitica:5432/analitica
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      OIDC_ISSUER: http://localhost:8080/realms/tiendas
+      OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
+    depends_on:
+      db-analitica:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  db-analitica:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: analitica
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./analitica/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d analitica"]
+      interval: 5s
+      retries: 10

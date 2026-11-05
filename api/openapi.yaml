@@ -15,6 +15,8 @@ servers:
     description: Gateway local (docker compose)
 security: []
 tags:
+  - name: Administración
+    description: Rutas del dominio de la plataforma, solo para el rol admin. Las atiende el servicio de Analítica (ADR-006).
   - name: Tiendas
     description: Datos públicos de las tiendas de la plataforma.
   - name: Catálogo
@@ -24,6 +26,25 @@ tags:
   - name: Ventas
     description: Pedidos y cobro a través de la pasarela de pagos (ADR-007).
 paths:
+  /v1/admin/estadisticas:
+    get:
+      tags: [Administración]
+      summary: Totales por tienda de toda la plataforma
+      description: |
+        Requiere el rol admin. Los totales se arman con los eventos que publican las celdas,
+        así que tienen consistencia eventual. Desde el subdominio de una tienda esta ruta no existe.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: Totales por tienda
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EstadisticaTienda' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
   /v1/tiendas/{tiendaId}:
     parameters:
       - $ref: '#/components/parameters/TiendaId'
@@ -260,6 +281,14 @@ components:
         clave con el mismo carrito no cobra dos veces. Con la misma clave y otro carrito responde 422.
       schema: { type: string, maxLength: 200, example: 6f1c1d0e-8d2a-4f6b-9a53-2b7f0f9d4c11 }
   schemas:
+    EstadisticaTienda:
+      type: object
+      properties:
+        tiendaId: { type: string, example: t1 }
+        productos: { type: integer, example: 6 }
+        pedidosConfirmados: { type: integer, example: 5 }
+        ventasCentavos: { type: integer, description: Total vendido en centavos, example: 14320000 }
+        actualizadoEn: { type: string, format: date-time }
     Tienda:
       type: object
       properties:

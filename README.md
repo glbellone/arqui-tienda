@@ -37,6 +37,7 @@ El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localho
 | Servicio | Dirección |
 | --- | --- |
 | Página de la plataforma | http://localhost:5173 |
+| Estadísticas de la plataforma (usuario `admin`) | http://localhost:5173/admin/estadisticas |
 | API | http://localhost:8000 |
 | Keycloak (consola: `admin` / `admin`) | http://localhost:8080 |
 | Pasarela de pagos simulada | http://localhost:4000 |
@@ -50,7 +51,7 @@ El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localho
 | `duenio.t2` | `duenio123` | Administra Cerámica Ñandú |
 | `duenio.p1` | `duenio123` | Administra Sastrería Ombú |
 | `comprador` | `comprador123` | Compra en las tiendas |
-| `admin` | `admin123` | Administra la plataforma (todavía sin pantallas propias) |
+| `admin` | `admin123` | Ve las estadísticas de toda la plataforma |
 
 ### Comandos útiles
 
@@ -63,7 +64,7 @@ El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localho
 | Bajar todo | `docker compose down` |
 
 Los servicios son `frontend`, `gateway`, `app-pool`, `app-premium-a`, `db-pool`, `db-premium-a`,
-`keycloak`, `pasarela-mock` y `rabbitmq`.
+`analitica`, `db-analitica`, `keycloak`, `pasarela-mock` y `rabbitmq`.
 
 Keycloak importa usuarios y roles solo al crear su contenedor: por eso esos cambios necesitan el
 `down`. Los cambios en el diseño de la pantalla de login, en cambio, se ven con solo recargar.
@@ -102,7 +103,7 @@ curl -i -X POST http://localhost:8000/v1/tiendas/t2/productos \
 npm test
 ```
 
-Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiendas.
+Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiendas y de estadísticas.
 
 ## Estructura del repositorio
 
@@ -112,6 +113,7 @@ Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiend
 ├── app/                Backend (NestJS), un módulo por área: catálogo, tiendas, ventas y pagos
 │   └── db/init/        Esquema de la base de datos
 ├── gateway/            Puerta de entrada de la API: identifica la tienda y deriva el pedido
+├── analitica/          Estadísticas de la plataforma: escucha los eventos de RabbitMQ
 ├── pasarela-mock/      Pasarela de pagos simulada
 ├── infra/keycloak/     Usuarios, roles y diseño de la pantalla de login
 ├── api/                Especificación OpenAPI

@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { PUBLICADOR_EVENTOS, type PublicadorDeEventos } from '../../../shared/application/eventos';
 import { DominioError } from '../../../shared/domain/dominio.error';
 import { PASARELA_PAGOS, type PasarelaPagos } from '../../pagos/domain/pasarela-pagos.port';
 import { CATALOGO, type Catalogo } from '../domain/catalogo.port';
@@ -25,6 +26,7 @@ export class ConfirmarPedido {
     @Inject(PEDIDO_REPOSITORY) private readonly pedidos: PedidoRepository,
     @Inject(CATALOGO) private readonly catalogo: Catalogo,
     @Inject(PASARELA_PAGOS) private readonly pagos: PasarelaPagos,
+    @Inject(PUBLICADOR_EVENTOS) private readonly eventos: PublicadorDeEventos,
   ) {}
 
   async ejecutar(comando: ConfirmarPedidoComando): Promise<{ pedido: Pedido; creado: boolean }> {
@@ -53,6 +55,17 @@ export class ConfirmarPedido {
     });
     pedido.registrarCobro(cobro.estado, cobro.idCobro);
     await this.pedidos.guardarCobro(pedido);
+
+    // Otros contextos (Analítica) se enteran por un evento (ADR-006): Ventas no sabe quién escucha.
+    // Solo cuenta como venta un pago aprobado, y se avisa una vez: un reintento de un pedido ya pagado sale antes.
+    if (cobro.estado === 'aprobado') {
+      this.eventos.publicar({
+        tipo: 'pedido.confirmado',
+        tiendaId: pedido.tiendaId,
+        pedidoId: pedido.id,
+        montoCentavos: pedido.totalCentavos,
+      });
+    }
     return { pedido, creado };
   }
 
