@@ -123,5 +123,3 @@ Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiend
 ## Tecnologías
 
 React con Vite, NestJS, PostgreSQL, Keycloak, Express, RabbitMQ y Docker Compose.
-
-HOLA MUNDO
