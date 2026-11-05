@@ -46,8 +46,8 @@ function llamar(url, { metodo = 'GET', host, headers = {}, cuerpo } = {}) {
 }
 
 /** Pedido al gateway con un Host a elección: así se simula entrar por el subdominio de una tienda. */
-export function pedir({ metodo = 'GET', ruta, host = GATEWAY.host, token, cuerpo }) {
-  const headers = {};
+export function pedir({ metodo = 'GET', ruta, host = GATEWAY.host, token, cuerpo, headers: extra = {} }) {
+  const headers = { ...extra };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (cuerpo !== undefined) headers['Content-Type'] = 'application/json';
   return llamar(new URL(ruta, GATEWAY).href, { metodo, host, headers, cuerpo });

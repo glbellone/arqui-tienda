@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import type { Tienda } from '../api';
+import { aProblema, tiendaActual, type Pedido, type Tienda } from '../api';
 import EstadoVacio from '../componentes/EstadoVacio';
 import Icono from '../componentes/Icono';
 import ImagenProducto from '../componentes/ImagenProducto';
@@ -9,13 +9,52 @@ import { useTitulo } from '../hooks/useTitulo';
 import { useCarrito } from './carrito';
 
 /**
- * Finalizar compra. Hoy arma el resumen y toma los datos de contacto y entrega; el pago se conecta
- * cuando exista el módulo Ventas, que crea el pedido y cobra a través de la pasarela (ADR-007).
+ * Finalizar compra. Toma los datos de contacto y entrega, crea el pedido y lo cobra a través de la
+ * pasarela simulada (ADR-007). Cada intento de compra lleva una clave de idempotencia: reintentar
+ * después de un corte de red no genera un segundo cobro.
  */
 export default function Checkout({ tienda }: { tienda: Tienda }) {
   useTitulo(`Finalizar compra · ${tienda.nombre}`);
   const carrito = useCarrito();
-  const [intentoPagar, setIntentoPagar] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pedido, setPedido] = useState<Pedido | null>(null);
+
+  // La clave está atada al contenido del carrito: se reutiliza en los reintentos del mismo carrito
+  // y se renueva si el carrito cambia (con otra composición el backend rechaza la misma clave).
+  const intento = useRef<{ firma: string; clave: string } | null>(null);
+
+  function claveDelIntento(): string {
+    const firma = JSON.stringify(
+      carrito.items
+        .map((i) => [i.productoId, i.cantidad] as const)
+        .sort(([a], [b]) => a.localeCompare(b)),
+    );
+    if (!intento.current || intento.current.firma !== firma) {
+      intento.current = { firma, clave: crypto.randomUUID() };
+    }
+    return intento.current.clave;
+  }
+
+  // Va antes del chequeo de carrito vacío: al pagar, el carrito se vacía.
+  if (pedido?.estado === 'PAGADO') {
+    return (
+      <div className="pagina-tienda">
+        <EstadoVacio
+          icono="bolsa"
+          titulo="¡Pago aprobado!"
+          acciones={
+            <Link to="/" className="boton">
+              Volver a la tienda
+            </Link>
+          }
+        >
+          Recibimos tu pedido por {formatearMonto(pedido.total.monto, pedido.total.moneda)}. Número de
+          pedido: {pedido.id}
+        </EstadoVacio>
+      </div>
+    );
+  }
 
   if (carrito.items.length === 0) {
     return (
@@ -35,9 +74,35 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
     );
   }
 
-  function enviar(e: FormEvent) {
+  async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIntentoPagar(true);
+    if (enviando) return;
+    const formulario = new FormData(e.currentTarget);
+    const campo = (nombre: string) => String(formulario.get(nombre) ?? '').trim();
+
+    setEnviando(true);
+    setError(null);
+    setPedido(null);
+    try {
+      const resultado = await tiendaActual.confirmarPedido(claveDelIntento(), {
+        items: carrito.items.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
+        comprador: { nombre: campo('nombre'), email: campo('email'), telefono: campo('telefono') || undefined },
+        envio: { direccion: campo('direccion'), ciudad: campo('ciudad'), codigoPostal: campo('cp') },
+      });
+      setPedido(resultado);
+      if (resultado.estado === 'PAGADO') {
+        carrito.vaciar();
+        intento.current = null;
+      } else if (resultado.estado === 'RECHAZADO') {
+        intento.current = null; // un intento nuevo necesita una clave nueva
+      }
+    } catch (err) {
+      // Error de red o del servidor: se conserva la clave. Si el cobro llegó a hacerse,
+      // reintentar devuelve ese mismo pedido en lugar de cobrar otra vez.
+      setError(aProblema(err).detail);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -87,19 +152,29 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
             </div>
           </fieldset>
 
-          {intentoPagar && (
-            <div className="aviso aviso-info" role="status">
+          {pedido?.estado === 'RECHAZADO' && (
+            <div className="aviso aviso-error" role="alert">
               <Icono nombre="alerta" medida={20} />
               <div className="aviso-texto">
-                <strong>El pago online todavía no está disponible</strong>
-                <p>Guardamos tu carrito para que puedas completar la compra más adelante.</p>
+                <strong>El pago fue rechazado</strong>
+                <p>No se realizó ningún cobro. Podés intentarlo de nuevo.</p>
               </div>
             </div>
           )}
 
-          <button type="submit" className="boton boton-grande boton-bloque">
+          {error && (
+            <div className="aviso aviso-error" role="alert">
+              <Icono nombre="alerta" medida={20} />
+              <div className="aviso-texto">
+                <strong>No pudimos completar el pago</strong>
+                <p>{error}</p>
+              </div>
+            </div>
+          )}
+
+          <button type="submit" className="boton boton-grande boton-bloque" disabled={enviando}>
             <Icono nombre="candado" medida={18} />
-            Continuar al pago
+            {enviando ? 'Procesando pago…' : 'Continuar al pago'}
           </button>
         </form>
 

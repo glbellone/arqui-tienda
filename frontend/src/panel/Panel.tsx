@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { tiendaActual, type Producto, type Tienda } from '../api';
+import { tiendaActual, type Pedido, type Producto, type Tienda } from '../api';
 import { esDuenioDe, ingresar, salir, type Sesion } from '../auth';
 import Icono, { type NombreIcono } from '../componentes/Icono';
 import MenuDesplegable from '../componentes/MenuDesplegable';
@@ -24,6 +24,8 @@ export interface ContextoPanel {
   sesion: Sesion;
   productos: Carga<Producto[]>;
   recargarProductos: () => void;
+  pedidos: Carga<Pedido[]>;
+  recargarPedidos: () => void;
 }
 
 const SECCIONES: { ruta: string; etiqueta: string; icono: NombreIcono; exacta?: boolean }[] = [
@@ -45,9 +47,10 @@ export default function Panel({ tienda, sesion }: Props) {
 
 function LayoutPanel({ tienda, sesion }: { tienda: Tienda; sesion: Sesion }) {
   const [productos, recargarProductos] = useCarga(() => tiendaActual.productos(), []);
+  const [pedidos, recargarPedidos] = useCarga(() => tiendaActual.pedidos(), []);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const { pathname } = useLocation();
-  const contexto: ContextoPanel = { tienda, sesion, productos, recargarProductos };
+  const contexto: ContextoPanel = { tienda, sesion, productos, recargarProductos, pedidos, recargarPedidos };
 
   // En el celular, el menú se cierra al navegar.
   useEffect(() => {

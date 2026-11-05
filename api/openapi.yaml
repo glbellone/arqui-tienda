@@ -13,13 +13,18 @@ info:
 servers:
   - url: http://localhost:8000
     description: Gateway local (docker compose)
+security: []
 tags:
   - name: Administración
     description: Rutas del dominio de la plataforma, solo para el rol admin. Las atiende el servicio de Analítica (ADR-006).
   - name: Tiendas
+    description: Datos públicos de las tiendas de la plataforma.
   - name: Catálogo
+    description: Productos de cada tienda.
   - name: Vitrina
     description: Rutas que se usan desde el subdominio de una tienda, por ejemplo la-yerbera.localhost.
+  - name: Ventas
+    description: Pedidos y cobro a través de la pasarela de pagos (ADR-007).
 paths:
   /v1/admin/estadisticas:
     get:
@@ -45,6 +50,7 @@ paths:
       - $ref: '#/components/parameters/TiendaId'
     get:
       tags: [Tiendas]
+      operationId: obtenerTienda
       summary: Datos públicos de una tienda
       description: Público. Lo responde el gateway con su registro, hasta que exista el módulo Tiendas e Inquilinos.
       responses:
@@ -61,6 +67,7 @@ paths:
           tienda: { default: la-yerbera, description: Subdominio de la tienda }
     get:
       tags: [Vitrina]
+      operationId: obtenerTiendaActual
       summary: Datos públicos de la tienda del subdominio
       responses:
         '200':
@@ -76,6 +83,7 @@ paths:
           tienda: { default: la-yerbera, description: Subdominio de la tienda }
     get:
       tags: [Vitrina]
+      operationId: listarProductosTiendaActual
       summary: Productos de la tienda del subdominio
       description: Público. Equivale a /v1/tiendas/{tiendaId}/productos de la tienda dueña del subdominio.
       responses:
@@ -91,11 +99,61 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/Producto' }
         '404': { $ref: '#/components/responses/Problema' }
+  /v1/pedidos:
+    servers:
+      - url: http://{tienda}.localhost:8000
+        variables:
+          tienda: { default: la-yerbera, description: Subdominio de la tienda }
+    post:
+      tags: [Vitrina]
+      operationId: confirmarPedidoTiendaActual
+      summary: Confirmar un pedido de la tienda del subdominio
+      description: Público. Equivale a POST /v1/tiendas/{tiendaId}/pedidos de la tienda dueña del subdominio.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoPedido' }
+      responses:
+        '201':
+          description: Pedido creado y cobrado. El estado puede ser PAGADO o RECHAZADO.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pedido' }
+        '200':
+          description: Reintento con la misma Idempotency-Key. Devuelve el pedido existente sin cobrar de nuevo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pedido' }
+        '400': { $ref: '#/components/responses/Problema' }
+        '404': { $ref: '#/components/responses/Problema' }
+        '422': { $ref: '#/components/responses/Problema' }
+        '503': { $ref: '#/components/responses/Problema' }
+    get:
+      tags: [Vitrina]
+      operationId: listarPedidosTiendaActual
+      summary: Pedidos de la tienda del subdominio (panel del dueño)
+      description: Requiere rol duenio. Equivale a GET /v1/tiendas/{tiendaId}/pedidos de la tienda dueña del subdominio.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: Pedidos de la tienda, del más reciente al más antiguo
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Pedido' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
   /v1/tiendas/{tiendaId}/productos:
     parameters:
       - $ref: '#/components/parameters/TiendaId'
     get:
       tags: [Catálogo]
+      operationId: listarProductos
       summary: Listar los productos de una tienda
       description: Público. Solo devuelve productos de la tienda indicada.
       responses:
@@ -109,6 +167,7 @@ paths:
         '404': { $ref: '#/components/responses/Problema' }
     post:
       tags: [Catálogo]
+      operationId: crearProducto
       summary: Cargar un producto en la tienda
       description: Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL.
       security:
@@ -141,6 +200,7 @@ paths:
         schema: { type: string, format: uuid }
     get:
       tags: [Catálogo]
+      operationId: obtenerProducto
       summary: Obtener un producto de la tienda
       responses:
         '200':
@@ -149,6 +209,57 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Producto' }
         '404': { $ref: '#/components/responses/Problema' }
+  /v1/tiendas/{tiendaId}/pedidos:
+    parameters:
+      - $ref: '#/components/parameters/TiendaId'
+    post:
+      tags: [Ventas]
+      operationId: confirmarPedido
+      summary: Confirmar un pedido y cobrarlo en la pasarela
+      description: |
+        Público. Crea el pedido con los precios de la tienda (el cliente no envía importes) y lo cobra
+        a través de la pasarela de pagos (ADR-007). La Idempotency-Key identifica el intento de compra:
+        repetir la misma clave con el mismo carrito devuelve el pedido ya existente y no genera un
+        segundo cobro. Un pago rechazado no es un error HTTP: el pedido se crea con estado RECHAZADO.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoPedido' }
+      responses:
+        '201':
+          description: Pedido creado y cobrado. El estado puede ser PAGADO o RECHAZADO.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pedido' }
+        '200':
+          description: Reintento con la misma Idempotency-Key. Devuelve el pedido existente sin cobrar de nuevo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Pedido' }
+        '400': { $ref: '#/components/responses/Problema' }
+        '404': { $ref: '#/components/responses/Problema' }
+        '422': { $ref: '#/components/responses/Problema' }
+        '503': { $ref: '#/components/responses/Problema' }
+    get:
+      tags: [Ventas]
+      operationId: listarPedidos
+      summary: Listar los pedidos de una tienda
+      description: Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: Pedidos de la tienda, del más reciente al más antiguo
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Pedido' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
 components:
   securitySchemes:
     oidc:
@@ -161,6 +272,14 @@ components:
       required: true
       description: Identificador de la tienda. El gateway lo usa para rutear a su celda.
       schema: { type: string, pattern: '^[a-z0-9-]{1,40}$', example: t1 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Identifica el intento de compra (por ejemplo un UUID generado por el cliente). Reenviar la misma
+        clave con el mismo carrito no cobra dos veces. Con la misma clave y otro carrito responde 422.
+      schema: { type: string, maxLength: 200, example: 6f1c1d0e-8d2a-4f6b-9a53-2b7f0f9d4c11 }
   schemas:
     EstadisticaTienda:
       type: object
@@ -199,6 +318,59 @@ components:
           properties:
             monto: { type: number, example: 15000 }
             moneda: { type: string, example: ARS }
+    NuevoPedido:
+      type: object
+      required: [items, comprador, envio]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required: [productoId, cantidad]
+            properties:
+              productoId: { type: string, format: uuid }
+              cantidad: { type: integer, minimum: 1, example: 2 }
+        comprador: { $ref: '#/components/schemas/Comprador' }
+        envio: { $ref: '#/components/schemas/Envio' }
+    Comprador:
+      type: object
+      description: Datos de contacto de quien compra.
+      required: [nombre, email]
+      properties:
+        nombre: { type: string, maxLength: 120, example: Ana Pérez }
+        email: { type: string, format: email, example: ana@example.com }
+        telefono: { type: string, maxLength: 40, example: '+54 11 5555-1234' }
+    Envio:
+      type: object
+      description: Dónde se entrega el pedido.
+      required: [direccion, ciudad, codigoPostal]
+      properties:
+        direccion: { type: string, maxLength: 200, example: Av. Vergara 2222 }
+        ciudad: { type: string, maxLength: 100, example: Hurlingham }
+        codigoPostal: { type: string, maxLength: 20, example: '1686' }
+    Pedido:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tiendaId: { type: string, example: t1 }
+        estado: { type: string, enum: [PENDIENTE, PAGADO, RECHAZADO] }
+        totalCentavos: { type: integer, description: Total del pedido en centavos, example: 850000 }
+        moneda: { type: string, example: ARS }
+        pagoReferencia: { type: string, nullable: true, description: Identificador del cobro en la pasarela }
+        comprador: { $ref: '#/components/schemas/Comprador' }
+        envio: { $ref: '#/components/schemas/Envio' }
+        creadoEn: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productoId: { type: string, format: uuid }
+              nombre: { type: string, example: Yerba mate 1kg }
+              cantidad: { type: integer, example: 2 }
+              precioCentavos: { type: integer, description: Precio unitario al momento de la compra, example: 425000 }
     Problema:
       type: object
       description: Problem Details (RFC 9457)
