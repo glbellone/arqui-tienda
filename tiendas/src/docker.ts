@@ -6,7 +6,8 @@ export interface ContenedorInspeccionado {
   Name: string;
   /** El id de la imagen (sha256:…), no su nombre. */
   Image: string;
-  Config: { Env: string[] | null; Labels: Record<string, string> | null };
+  /** El nombre con el que se creó (arqui-tienda-app-pool, postgres:16-alpine…). */
+  Config: { Image: string; Env: string[] | null; Labels: Record<string, string> | null };
   Mounts: { Type: string; Source: string; Destination: string; RW: boolean }[];
   NetworkSettings: { Networks: Record<string, unknown> };
 }

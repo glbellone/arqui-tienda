@@ -82,9 +82,10 @@ dónde vive cada tienda.
 - **El `docker.sock` da acceso total al Docker del host.** Quien comprometa el servicio de Tiendas
   puede crear, borrar o entrar a cualquier contenedor. Se acepta porque es una simulación local; en
   producción el servicio llamaría a la API de la nube con un rol limitado a crear y borrar celdas.
-- **Las celdas creadas no se actualizan solas cuando cambia la imagen.** Se crean con el id de la
-  imagen de la pool de ese momento. Un `docker compose up --build` actualiza la pool y `premium-a`,
-  pero no las celdas dinámicas: hay que recrearlas. En producción, el pipeline tendría que desplegar
+- **Las celdas creadas no se actualizan solas cuando cambia la imagen.** Se crean con la imagen
+  que tiene la pool en ese momento, y un contenedor no cambia de imagen después de creado. Un
+  `docker compose up --build` actualiza la pool y `premium-a`, pero no las celdas dinámicas: hay
+  que recrearlas. En producción, el pipeline tendría que desplegar
   en todas las celdas del registro.
 - **Hay un corte breve de escrituras durante la mudanza** (del paso 2 al 5, del orden de 15 a 20
   segundos más el tiempo de copia). Mientras tanto la tienda se ve pero no acepta pedidos ni cambios.

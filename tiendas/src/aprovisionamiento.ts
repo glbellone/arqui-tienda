@@ -1,6 +1,6 @@
 import { hostname } from 'node:os';
 import { conTiendaEnCelda } from './celdas-db';
-import { Docker, type ContenedorInspeccionado } from './docker';
+import { Docker, ErrorDeDocker, type ConfigContenedor, type ContenedorInspeccionado } from './docker';
 import type { Celda, Registro } from './registro';
 
 const LABEL_PROYECTO = 'com.docker.compose.project';
@@ -12,7 +12,8 @@ const ESPERA_MAXIMA_MS = 60_000;
 
 /** De qué se clona cada contenedor de una celda nueva. */
 interface Molde {
-  imagen: string;
+  /** Con qué crear el contenedor, en orden de preferencia: el nombre de la imagen y, si no, su id. */
+  imagenes: string[];
   env: string[];
   binds: string[];
   red: string;
@@ -68,8 +69,7 @@ export class Aprovisionador {
     const reinicio = { Name: 'unless-stopped' };
 
     // 1. La base: misma imagen y mismos scripts de init que la pool, así tiene el esquema, RLS y el usuario migrador.
-    const idDb = await this.docker.crear(`${db.proyecto}-${hostDb}`, {
-      Image: db.imagen,
+    const idDb = await this.crear(`${db.proyecto}-${hostDb}`, db.imagenes, {
       Env: db.env,
       Labels: labels(hostDb),
       HostConfig: { Binds: db.binds, RestartPolicy: reinicio },
@@ -78,8 +78,7 @@ export class Aprovisionador {
     await this.docker.arrancar(idDb);
 
     // 2. La app: el mismo Env que app-pool, con su celda y su base.
-    const idApp = await this.docker.crear(`${app.proyecto}-${hostApp}`, {
-      Image: app.imagen,
+    const idApp = await this.crear(`${app.proyecto}-${hostApp}`, app.imagenes, {
       Env: conVariables(app.env, { CELDA: nombre, DB_URL: cambiarHost(valorDe(app.env, 'DB_URL'), hostDb) }),
       Labels: labels(hostApp),
       HostConfig: { RestartPolicy: reinicio },
@@ -117,6 +116,23 @@ export class Aprovisionador {
     return huerfanos.map((c) => c.Names[0]?.replace(/^\//, '') ?? c.Id);
   }
 
+  /**
+   * Crea el contenedor con la primera imagen que Docker reconozca. Con el almacén de imágenes de
+   * containerd, el id que devuelve `inspect` puede no servir para crear otro contenedor; el nombre sí.
+   */
+  private async crear(nombre: string, imagenes: string[], config: Omit<ConfigContenedor, 'Image'>): Promise<string> {
+    let ultimoError: unknown;
+    for (const Image of imagenes) {
+      try {
+        return await this.docker.crear(nombre, { ...config, Image });
+      } catch (error) {
+        if (!(error instanceof ErrorDeDocker && error.status === 404)) throw error;
+        ultimoError = error;
+      }
+    }
+    throw ultimoError ?? new Error(`No hay imagen para crear ${nombre}`);
+  }
+
   private async borrarContenedores(celda: string): Promise<void> {
     const proyecto = await this.proyectoPropio();
     const filtros = [`${LABEL_CELDA}=${celda}`, ...(proyecto ? [`${LABEL_PROYECTO}=${proyecto}`] : [])];
@@ -133,7 +149,7 @@ export class Aprovisionador {
     const red = Object.keys(c.NetworkSettings.Networks)[0];
     if (!red) throw new Error(`El contenedor de ${servicio} no está en ninguna red`);
     return {
-      imagen: c.Image,
+      imagenes: [...new Set([c.Config.Image, c.Image].filter(Boolean))],
       env: c.Config.Env ?? [],
       binds: c.Mounts.filter((m) => m.Type === 'bind').map((m) => `${m.Source}:${m.Destination}${m.RW ? '' : ':ro'}`),
       red,
