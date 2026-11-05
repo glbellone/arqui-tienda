@@ -98,6 +98,9 @@ app.use('/v1/admin', (req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+/** Métodos que no escriben: siguen andando mientras la tienda se muda. */
+const LECTURAS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 // 4. Resolver en qué celda vive la tienda de la URL.
 app.use((req: Request, res: Response, next: NextFunction) => {
   if ((req as RequestConDestino).destino) return next();
@@ -115,11 +118,25 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return void res.json(perfilPublico(tiendaId, tienda));
   }
 
+  // El plan de la tienda lo gestiona el servicio de Tiendas, no la celda (ADR-012). Desde el
+  // subdominio, /v1/plan ya llega acá traducido a /v1/tiendas/{id}/plan.
+  if (resto === '/plan' || resto.startsWith('/plan/')) {
+    (req as RequestConDestino).destino = tiendas;
+    return next();
+  }
+
+  // Mientras la tienda se muda de celda, se leen los datos de la celda vieja pero no se escriben:
+  // lo que se escriba ahí se perdería en la copia (ADR-012).
+  if (tienda.estado === 'mudandose' && !LECTURAS.has(req.method)) {
+    res.setHeader('Retry-After', '30');
+    return problema(res, 503, 'No disponible', 'La tienda se está actualizando. Probá de nuevo en un minuto.');
+  }
+
   (req as RequestConDestino).destino = destino;
   next();
 });
 
-// 5. Reenviar al destino: la celda de la tienda o Analítica.
+// 5. Reenviar al destino: la celda de la tienda, Tiendas o Analítica.
 app.use(
   createProxyMiddleware({
     target: 'http://celda-no-resuelta',
