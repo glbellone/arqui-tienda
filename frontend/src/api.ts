@@ -17,6 +17,81 @@ export interface NuevoProducto {
   precio: number;
 }
 
+export type EstadoPedido = 'PENDIENTE' | 'PAGADO' | 'RECHAZADO';
+
+export interface ItemPedidoNuevo {
+  productoId: string;
+  cantidad: number;
+}
+
+export interface DatosComprador {
+  nombre: string;
+  email: string;
+  telefono?: string;
+}
+
+export interface DatosEnvio {
+  direccion: string;
+  ciudad: string;
+  codigoPostal: string;
+}
+
+/** Lo que manda el checkout. Los precios no viajan: los pone la tienda. */
+export interface NuevoPedido {
+  items: ItemPedidoNuevo[];
+  comprador: DatosComprador;
+  envio: DatosEnvio;
+}
+
+export interface ItemPedido {
+  productoId: string;
+  nombre: string;
+  cantidad: number;
+  precio: { monto: number; moneda: string };
+}
+
+export interface Pedido {
+  id: string;
+  estado: EstadoPedido;
+  total: { monto: number; moneda: string };
+  comprador: DatosComprador;
+  envio: DatosEnvio;
+  creadoEn: string;
+  items: ItemPedido[];
+}
+
+/** Como lo devuelve el backend: importes en centavos. */
+interface PedidoCrudo {
+  id: string;
+  estado: EstadoPedido;
+  totalCentavos: number;
+  moneda: string;
+  comprador: DatosComprador;
+  envio: DatosEnvio;
+  creadoEn: string;
+  items?: { productoId: string; nombre: string; cantidad: number; precioCentavos: number }[];
+}
+
+// El backend guarda los importes en centavos; en el front se usan en pesos, como `precio.monto` de los productos.
+const aMonto = (centavos: number) => centavos / 100;
+
+function aPedido(p: PedidoCrudo): Pedido {
+  return {
+    id: p.id,
+    estado: p.estado,
+    total: { monto: aMonto(p.totalCentavos), moneda: p.moneda },
+    comprador: p.comprador,
+    envio: p.envio,
+    creadoEn: p.creadoEn,
+    items: (p.items ?? []).map((i) => ({
+      productoId: i.productoId,
+      nombre: i.nombre,
+      cantidad: i.cantidad,
+      precio: { monto: aMonto(i.precioCentavos), moneda: p.moneda },
+    })),
+  };
+}
+
 /** Datos públicos de una tienda, tal como los devuelve el gateway. */
 export interface Tienda {
   id: string;
@@ -84,6 +159,15 @@ export const tiendaActual = {
   producto: (productoId: string) => pedir<Producto>(`/v1/productos/${encodeURIComponent(productoId)}`),
   crearProducto: (producto: NuevoProducto) =>
     pedir<Producto>('/v1/productos', { method: 'POST', body: JSON.stringify(producto) }),
+  confirmarPedido: async (claveIdempotencia: string, pedido: NuevoPedido) =>
+    aPedido(
+      await pedir<PedidoCrudo>('/v1/pedidos', {
+        method: 'POST',
+        body: JSON.stringify(pedido),
+        headers: { 'Idempotency-Key': claveIdempotencia },
+      }),
+    ),
+  pedidos: async () => (await pedir<PedidoCrudo[]>('/v1/pedidos')).map(aPedido),
 };
 
 // En la plataforma (sin subdominio) se usa el contrato completo de la API (ADR-009).
