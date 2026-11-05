@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsDefined,
@@ -58,6 +59,7 @@ export class EnvioDto {
 export class ConfirmarPedidoDto {
   @IsArray({ message: 'El pedido necesita una lista de items' })
   @ArrayMinSize(1, { message: 'El pedido necesita al menos un producto' })
+  @ArrayMaxSize(50, { message: 'Un pedido puede tener hasta 50 productos' })
   @ValidateNested({ each: true, message: 'Cada item necesita productoId y cantidad' })
   @Type(() => ItemPedidoDto)
   items!: ItemPedidoDto[];

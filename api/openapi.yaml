@@ -296,6 +296,7 @@ components:
         items:
           type: array
           minItems: 1
+          maxItems: 50
           items:
             type: object
             required: [productoId, cantidad]

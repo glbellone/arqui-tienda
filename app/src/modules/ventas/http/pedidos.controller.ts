@@ -1,25 +1,31 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Headers,
-  Param,
-  Post,
-  Res,
-} from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import { ConfirmarPedido } from '../application/confirmar-pedido.usecase';
-import { PedidoRepository } from '../infrastructure/pedido.repository';
+import { ConfirmarPedido } from '../application/confirmar-pedido';
+import { ListarPedidos } from '../application/listar-pedidos';
+import type { Pedido } from '../domain/pedido';
 import { ConfirmarPedidoDto } from './confirmar-pedido.dto';
+
+const aDto = (p: Pedido) => ({
+  id: p.id,
+  tiendaId: p.tiendaId,
+  estado: p.estado,
+  totalCentavos: p.totalCentavos,
+  moneda: p.moneda,
+  pagoReferencia: p.pagoReferencia,
+  comprador: p.comprador,
+  envio: p.envio,
+  creadoEn: p.creadoEn,
+  items: p.lineas,
+});
 
 @Controller('v1/tiendas/:tiendaId/pedidos')
 export class PedidosController {
   constructor(
     private readonly confirmarPedido: ConfirmarPedido,
-    private readonly repo: PedidoRepository,
+    private readonly listarPedidos: ListarPedidos,
   ) {}
 
+  /** Público: para comprar no hace falta tener cuenta. 201 si el pedido es nuevo, 200 si es un reintento. */
   @Post()
   async confirmar(
     @Param('tiendaId') tiendaId: string,
@@ -27,9 +33,8 @@ export class PedidosController {
     @Body() dto: ConfirmarPedidoDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (!clave || clave.length > 200) {
-      throw new BadRequestException('Falta el header Idempotency-Key');
-    }
+    if (!clave) throw new BadRequestException('Falta el header Idempotency-Key');
+    if (clave.length > 200) throw new BadRequestException('El header Idempotency-Key es demasiado largo');
 
     const { pedido, creado } = await this.confirmarPedido.ejecutar({
       tiendaId,
@@ -39,13 +44,12 @@ export class PedidosController {
       envio: dto.envio,
     });
     res.status(creado ? 201 : 200);
-    return pedido;
+    return aDto(pedido);
   }
 
-  // Solo el dueño de la tienda debería poder listar. Aplicá el mismo guard
-  // que usás en el controller de productos.
   @Get()
-  listar(@Param('tiendaId') tiendaId: string) {
-    return this.repo.listar(tiendaId);
+  async listar(@Param('tiendaId') tiendaId: string) {
+    const pedidos = await this.listarPedidos.ejecutar({ tiendaId });
+    return pedidos.map(aDto);
   }
 }

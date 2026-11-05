@@ -5,9 +5,13 @@ import { PRODUCTO_REPOSITORY } from './domain/producto.repository';
 import { ProductosController } from './http/productos.controller';
 import { PgProductoRepository } from './infrastructure/pg-producto.repository';
 
-/** Bounded context Catálogo: los productos y precios de cada tienda. */
+/**
+ * Bounded context Catálogo: los productos y precios de cada tienda.
+ * Exporta ConsultarProductos: es lo único que otros módulos (Ventas) pueden usar de Catálogo.
+ */
 @Module({
   controllers: [ProductosController],
   providers: [CrearProducto, ConsultarProductos, { provide: PRODUCTO_REPOSITORY, useClass: PgProductoRepository }],
+  exports: [ConsultarProductos],
 })
 export class CatalogoModule {}
