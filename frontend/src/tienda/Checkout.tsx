@@ -30,7 +30,6 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
         .map((i) => [i.productoId, i.cantidad] as const)
         .sort(([a], [b]) => a.localeCompare(b)),
     );
-
     if (!intento.current || intento.current.firma !== firma) {
       intento.current = { firma, clave: crypto.randomUUID() };
     }
@@ -63,7 +62,6 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
         <EstadoVacio
           icono="bolsa"
           titulo="Tu carrito está vacío"
-
           acciones={
             <Link to={{ pathname: '/', hash: '#productos' }} className="boton">
               Ver productos
@@ -96,7 +94,6 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
       }
     } catch (err) {
       // Error de red o del servidor: se conserva la clave. Si el cobro llegó a hacerse,
-
       // reintentar devuelve ese mismo pedido en lugar de cobrar otra vez.
       setError(aProblema(err).detail);
     } finally {
@@ -129,7 +126,6 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
             <label className="campo">
               <span>Email</span>
               <input className="control" name="email" type="email" autoComplete="email" required />
-
               <small className="ayuda">Te enviamos ahí la confirmación del pedido.</small>
             </label>
           </fieldset>
@@ -153,7 +149,7 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
           </fieldset>
 
           {pedido?.estado === 'RECHAZADO' && (
-            <div className="aviso aviso-info" role="alert">
+            <div className="aviso aviso-error" role="alert">
               <Icono nombre="alerta" medida={20} />
               <div className="aviso-texto">
                 <strong>El pago fue rechazado</strong>
@@ -162,9 +158,8 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
             </div>
           )}
 
-
           {error && (
-            <div className="aviso aviso-info" role="alert">
+            <div className="aviso aviso-error" role="alert">
               <Icono nombre="alerta" medida={20} />
               <div className="aviso-texto">
                 <strong>No pudimos completar el pago</strong>
@@ -195,7 +190,6 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
               </li>
             ))}
           </ul>
-
           <dl className="resumen-totales">
             <div>
               <dt>Subtotal</dt>

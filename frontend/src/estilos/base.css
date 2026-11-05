@@ -466,6 +466,11 @@ fieldset {
   color: var(--exito);
 }
 
+.insignia-error {
+  background: var(--error-fondo);
+  color: var(--error);
+}
+
 /* Avatar y monograma */
 .avatar {
   display: inline-grid;

@@ -1,81 +1,86 @@
-import { useEffect, useState } from 'react';
-import { aProblema, tiendaActual, type EstadoPedido, type Pedido } from '../api';
+import { useEffect } from 'react';
+import type { EstadoPedido } from '../api';
+import AvisoError from '../componentes/AvisoError';
+import { Esqueleto } from '../componentes/Esqueleto';
 import EstadoVacio from '../componentes/EstadoVacio';
-import { formatearMonto } from '../formato';
+import { formatearPrecio, plural } from '../formato';
 import { useTitulo } from '../hooks/useTitulo';
 import EncabezadoPagina from './Encabezado';
 import EnlaceTienda from './EnlaceTienda';
 import type { ContextoPanel } from './Panel';
 
-const ETIQUETA_ESTADO: Record<EstadoPedido, string> = {
-  PENDIENTE: 'Pendiente',
-  PAGADO: 'Pagado',
-  RECHAZADO: 'Pago rechazado',
+const ESTADOS: Record<EstadoPedido, { texto: string; clase: string }> = {
+  PENDIENTE: { texto: 'Pendiente', clase: '' },
+  PAGADO: { texto: 'Pagado', clase: 'insignia-exito' },
+  RECHAZADO: { texto: 'Pago rechazado', clase: 'insignia-error' },
 };
 
-/** Pedidos de la tienda: compras de los clientes y el estado de su pago (ADR-007). */
-export default function Pedidos({ tienda }: ContextoPanel) {
+const fecha = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+
+/** Pedidos de la tienda: las compras de los clientes y el estado de su pago (ADR-007). */
+export default function Pedidos({ tienda, pedidos, recargarPedidos }: ContextoPanel) {
   useTitulo(`Pedidos · ${tienda.nombre}`);
-  const [pedidos, setPedidos] = useState<Pedido[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelado = false;
-    setPedidos(null);
-    setError(null);
-    tiendaActual
-      .pedidos()
-      .then((datos) => !cancelado && setPedidos(datos))
-      .catch((err) => !cancelado && setError(aProblema(err).detail));
-    return () => {
-      cancelado = true;
-    };
+  // Cada vez que se entra, se piden de nuevo: puede haber compras desde la última vez.
+  useEffect(recargarPedidos, [recargarPedidos]);
 
-  }, [tienda.id]);
+  const total = pedidos.estado === 'listo' ? pedidos.datos.length : 0;
 
   return (
     <>
-      <EncabezadoPagina titulo="Pedidos" descripcion="Las compras que hacen tus clientes." />
-      <div className="tarjeta">
-        {error && <p role="alert">{error}</p>}
+      <EncabezadoPagina
+        titulo="Pedidos"
+        descripcion={total > 0 ? plural(total, 'pedido', 'pedidos') : 'Las compras que hacen tus clientes.'}
+      />
 
-        {!error && pedidos === null && <p className="texto-suave">Cargando pedidos…</p>}
+      {pedidos.estado === 'error' && <AvisoError problema={pedidos.problema} onReintentar={recargarPedidos} />}
 
-        {pedidos !== null && pedidos.length === 0 && (
-          <>
-            <EstadoVacio icono="pedidos" titulo="Todavía no recibiste pedidos">
-              Cuando un cliente compre en tu tienda, vas a ver acá el detalle y el estado del pago.
-            </EstadoVacio>
-            <div className="centrado">
-              <EnlaceTienda url={tienda.url} />
-            </div>
-          </>
-        )}
-
-        {pedidos !== null && pedidos.length > 0 && (
-          <table>
+      {pedidos.estado === 'listo' && total === 0 ? (
+        <div className="tarjeta">
+          <EstadoVacio icono="pedidos" titulo="Todavía no recibiste pedidos">
+            Cuando un cliente compre en tu tienda, vas a ver acá el detalle y el estado del pago.
+          </EstadoVacio>
+          <div className="centrado">
+            <EnlaceTienda url={tienda.url} />
+          </div>
+        </div>
+      ) : (
+        <div className="tarjeta tarjeta-tabla">
+          <table className="tabla">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Productos</th>
-                <th>Total</th>
-                <th>Estado</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Productos</th>
+                <th scope="col" className="alinear-derecha">
+                  Total
+                </th>
+                <th scope="col">Estado</th>
               </tr>
             </thead>
             <tbody>
-
-              {pedidos.map((p) => (
-                <tr key={p.id}>
-                  <td>{new Date(p.creadoEn).toLocaleString('es-AR')}</td>
-                  <td>{p.items.map((i) => `${i.nombre} ×${i.cantidad}`).join(', ')}</td>
-                  <td>{formatearMonto(p.total.monto, p.total.moneda)}</td>
-                  <td>{ETIQUETA_ESTADO[p.estado]}</td>
-                </tr>
-              ))}
+              {pedidos.estado === 'cargando' &&
+                Array.from({ length: 3 }, (_, i) => (
+                  <tr key={i}>
+                    <td colSpan={4}>
+                      <Esqueleto className="esqueleto-linea" />
+                    </td>
+                  </tr>
+                ))}
+              {pedidos.estado === 'listo' &&
+                pedidos.datos.map((p) => (
+                  <tr key={p.id}>
+                    <td className="texto-suave">{fecha.format(new Date(p.creadoEn))}</td>
+                    <td>{p.items.map((i) => `${i.nombre} ×${i.cantidad}`).join(', ')}</td>
+                    <td className="alinear-derecha">{formatearPrecio(p.total)}</td>
+                    <td>
+                      <span className={`insignia ${ESTADOS[p.estado].clase}`}>{ESTADOS[p.estado].texto}</span>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 }
