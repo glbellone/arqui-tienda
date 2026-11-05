@@ -13,7 +13,7 @@ Vamos a publicar eventos de negocio (producto creado, pedido confirmado) desde c
 
 Cómo se implementó:
 
-- **Las celdas publican a través de un puerto.** El caso de uso llama a `PublicadorDeEventos` (capa de aplicación); el adaptador de RabbitMQ publica en el exchange `eventos`, de tipo topic, con el tipo de evento como clave (`producto.creado`, `pedido.confirmado`). Catálogo no sabe que existe Analítica.
+- **Las celdas publican a través de un puerto.** El caso de uso llama a `PublicadorDeEventos` (capa de aplicación); el adaptador de RabbitMQ publica en el exchange `eventos`, de tipo topic, con el tipo de evento como clave. Catálogo publica `producto.creado` y Ventas, `pedido.confirmado` cuando la pasarela aprueba el pago. Ninguno sabe que existe Analítica.
 - **Analítica es un servicio aparte** (`analitica/`), con su contenedor y su propia base. Enlaza su cola `analitica` al exchange y suma totales por tienda: productos, pedidos confirmados y ventas. No guarda productos, pedidos ni datos de compradores.
 - **Entrega al menos una vez.** Analítica confirma cada mensaje recién después de guardarlo. Si RabbitMQ lo reenvía, lo descarta por su `eventoId`.
 - **Solo el administrador ve las estadísticas** (`GET /v1/admin/estadisticas`, rol `admin`). El gateway deriva `/v1/admin/` a Analítica solo desde el dominio de la plataforma, nunca desde el subdominio de una tienda.
