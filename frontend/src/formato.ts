@@ -34,6 +34,18 @@ export function hash(texto: string): number {
 
 export const plural = (n: number, singular: string, plurales: string) => `${n} ${n === 1 ? singular : plurales}`;
 
+/** Sugiere un subdominio a partir del nombre de la tienda: "Cerámica Ñandú" → "ceramica-nandu". */
+export function sugerirSubdominio(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/, '');
+}
+
 /** Sugiere un SKU a partir del nombre: "Mate imperial de calabaza" → "MATE-IMPE-482". */
 export function sugerirSku(nombre: string): string {
   const base = nombre

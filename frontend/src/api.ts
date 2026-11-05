@@ -187,4 +187,41 @@ export interface EstadisticaTienda {
 }
 
 /** Estadísticas de toda la plataforma. Solo responde al rol admin. */
-export const estadisticas = () => pedir<EstadisticaTienda[]>('/v1/admin/estadisticas');
+/** Una tienda tal como la ve el administrador de la plataforma (ADR-012). */
+export interface TiendaAdmin {
+  id: string;
+  subdominio: string;
+  nombre: string;
+  rubro: string;
+  color: string;
+  plan: 'Estándar' | 'Premium';
+  /** En qué celda vive: pool o una celda Premium. */
+  celda: string;
+  /** mudandose: se está pasando a otra celda. */
+  estado: 'activa' | 'mudandose';
+  creadaEn: string;
+  url: string;
+}
+
+export interface NuevaTienda {
+  nombre: string;
+  subdominio: string;
+  rubro: string;
+  color: string;
+  duenio: { nombre: string; email: string };
+}
+
+/** La tienda creada y el usuario de su dueño. La contraseña se muestra una sola vez. */
+export interface TiendaCreada {
+  tienda: TiendaAdmin;
+  duenio: { usuario: string; clave: string };
+}
+
+/** Administración de la plataforma: solo para el rol admin. */
+export const admin = {
+  estadisticas: () => pedir<EstadisticaTienda[]>('/v1/admin/estadisticas'),
+  tiendas: () => pedir<TiendaAdmin[]>('/v1/admin/tiendas'),
+  crearTienda: (datos: NuevaTienda) =>
+    pedir<TiendaCreada>('/v1/admin/tiendas', { method: 'POST', body: JSON.stringify(datos) }),
+  darDeBaja: (id: string) => pedir<null>(`/v1/admin/tiendas/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+};
