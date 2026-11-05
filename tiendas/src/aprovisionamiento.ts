@@ -98,10 +98,13 @@ export class Aprovisionador {
     return this.registro.agregarCeldaDinamica({ nombre, urlApp, hostDb });
   }
 
-  /** Borra los contenedores de una celda dinámica (con los datos de su base) y su fila en el registro. */
+  /**
+   * Borra una celda dinámica: su fila en el registro y sus contenedores (con los datos de su base).
+   * Primero la fila: si Docker falla, los contenedores quedan huérfanos y se borran al reiniciar el servicio.
+   */
   async borrarCelda(nombre: string): Promise<void> {
-    await this.borrarContenedores(nombre);
     await this.registro.borrarCeldaDinamica(nombre);
+    await this.borrarContenedores(nombre);
   }
 
   /** Al arrancar: contenedores con el label de este servicio cuya celda ya no está en el registro. */
