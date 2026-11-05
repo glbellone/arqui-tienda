@@ -74,17 +74,21 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
     );
   }
 
-  async function enviar(e: FormEvent) {
+  async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (enviando) return;
+    const formulario = new FormData(e.currentTarget);
+    const campo = (nombre: string) => String(formulario.get(nombre) ?? '').trim();
+
     setEnviando(true);
     setError(null);
     setPedido(null);
     try {
-      const resultado = await tiendaActual.confirmarPedido(
-        claveDelIntento(),
-        carrito.items.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
-      );
+      const resultado = await tiendaActual.confirmarPedido(claveDelIntento(), {
+        items: carrito.items.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
+        comprador: { nombre: campo('nombre'), email: campo('email'), telefono: campo('telefono') || undefined },
+        envio: { direccion: campo('direccion'), ciudad: campo('ciudad'), codigoPostal: campo('cp') },
+      });
       setPedido(resultado);
       if (resultado.estado === 'PAGADO') {
         carrito.vaciar();

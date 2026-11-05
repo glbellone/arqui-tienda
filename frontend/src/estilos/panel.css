@@ -454,6 +454,16 @@
   width: 2.75rem;
 }
 
+.celda-cliente {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.celda-cliente span {
+  color: var(--tinta-2);
+  font-size: 0.85rem;
+}
+
 .tabla-sin-resultados {
   margin: 0;
   padding: 2rem;

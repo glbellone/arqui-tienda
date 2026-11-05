@@ -25,6 +25,13 @@ CREATE TABLE pedidos (
   total_centavos     bigint      NOT NULL CHECK (total_centavos >= 0),
   moneda             char(3)     NOT NULL,
   pago_referencia    text,
+  -- Datos del checkout: a quién se le entrega el pedido.
+  comprador_nombre   text        NOT NULL,
+  comprador_email    text        NOT NULL,
+  comprador_telefono text,
+  envio_direccion    text        NOT NULL,
+  envio_ciudad       text        NOT NULL,
+  envio_codigo_postal text       NOT NULL,
   creado_en          timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tienda_id, clave_idempotencia)
 );

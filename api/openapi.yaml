@@ -291,7 +291,7 @@ components:
             moneda: { type: string, example: ARS }
     NuevoPedido:
       type: object
-      required: [items]
+      required: [items, comprador, envio]
       properties:
         items:
           type: array
@@ -302,6 +302,24 @@ components:
             properties:
               productoId: { type: string, format: uuid }
               cantidad: { type: integer, minimum: 1, example: 2 }
+        comprador: { $ref: '#/components/schemas/Comprador' }
+        envio: { $ref: '#/components/schemas/Envio' }
+    Comprador:
+      type: object
+      description: Datos de contacto de quien compra.
+      required: [nombre, email]
+      properties:
+        nombre: { type: string, maxLength: 120, example: Ana Pérez }
+        email: { type: string, format: email, example: ana@example.com }
+        telefono: { type: string, maxLength: 40, example: '+54 11 5555-1234' }
+    Envio:
+      type: object
+      description: Dónde se entrega el pedido.
+      required: [direccion, ciudad, codigoPostal]
+      properties:
+        direccion: { type: string, maxLength: 200, example: Av. Vergara 2222 }
+        ciudad: { type: string, maxLength: 100, example: Hurlingham }
+        codigoPostal: { type: string, maxLength: 20, example: '1686' }
     Pedido:
       type: object
       properties:
@@ -311,6 +329,8 @@ components:
         totalCentavos: { type: integer, description: Total del pedido en centavos, example: 850000 }
         moneda: { type: string, example: ARS }
         pagoReferencia: { type: string, nullable: true, description: Identificador del cobro en la pasarela }
+        comprador: { $ref: '#/components/schemas/Comprador' }
+        envio: { $ref: '#/components/schemas/Envio' }
         creadoEn: { type: string, format: date-time }
         items:
           type: array

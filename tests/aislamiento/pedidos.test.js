@@ -13,9 +13,12 @@ const NANDU = enTienda('ceramica-nandu'); // t2, misma celda pool
 const sufijo = Date.now().toString(36);
 const PRECIO = 1500;
 
+const COMPRADOR = { nombre: 'Ana Pérez', email: 'ana@example.com', telefono: '11 5555-1234' };
+const ENVIO = { direccion: 'Av. Vergara 2222', ciudad: 'Hurlingham', codigoPostal: '1686' };
+
 /** Confirma un pedido desde el subdominio de una tienda, como lo hace el checkout. */
-function comprar(host, items, clave = randomUUID()) {
-  return pedir({ metodo: 'POST', ruta: '/v1/pedidos', host, cuerpo: { items }, headers: { 'Idempotency-Key': clave } });
+function comprar(host, items, clave = randomUUID(), datos = { comprador: COMPRADOR, envio: ENVIO }) {
+  return pedir({ metodo: 'POST', ruta: '/v1/pedidos', host, cuerpo: { items, ...datos }, headers: { 'Idempotency-Key': clave } });
 }
 
 describe('Checkout y pedidos', () => {
@@ -53,6 +56,25 @@ describe('Checkout y pedidos', () => {
     assert.equal(compra.json.items[0].precioCentavos, PRECIO * 100);
   });
 
+  test('el pedido guarda los datos del comprador y de la entrega', () => {
+    assert.deepEqual(compra.json.comprador, COMPRADOR);
+    assert.deepEqual(compra.json.envio, ENVIO);
+  });
+
+  test('sin un email válido no se crea el pedido (400)', async () => {
+    const res = await comprar(YERBERA, [{ productoId: mate.id, cantidad: 1 }], randomUUID(), {
+      comprador: { nombre: 'Ana Pérez', email: 'no-es-un-email' },
+      envio: ENVIO,
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.json.detail, /email/);
+  });
+
+  test('sin datos de entrega no se crea el pedido (400)', async () => {
+    const res = await comprar(YERBERA, [{ productoId: mate.id, cantidad: 1 }], randomUUID(), { comprador: COMPRADOR });
+    assert.equal(res.status, 400);
+  });
+
   test('reintentar con la misma Idempotency-Key devuelve el mismo pedido y no cobra de nuevo (200)', async () => {
     const res = await comprar(YERBERA, [{ productoId: mate.id, cantidad: 2 }], clave);
     assert.equal(res.status, 200);
@@ -67,7 +89,12 @@ describe('Checkout y pedidos', () => {
   });
 
   test('sin Idempotency-Key da 400', async () => {
-    const res = await pedir({ metodo: 'POST', ruta: '/v1/pedidos', host: YERBERA, cuerpo: { items: [{ productoId: mate.id, cantidad: 1 }] } });
+    const res = await pedir({
+      metodo: 'POST',
+      ruta: '/v1/pedidos',
+      host: YERBERA,
+      cuerpo: { items: [{ productoId: mate.id, cantidad: 1 }], comprador: COMPRADOR, envio: ENVIO },
+    });
     assert.equal(res.status, 400);
   });
 
@@ -86,7 +113,9 @@ describe('Checkout y pedidos', () => {
   test('el dueño de t1 ve el pedido en su panel', async () => {
     const res = await pedir({ ruta: '/v1/pedidos', host: YERBERA, token: tokenT1 });
     assert.equal(res.status, 200);
-    assert.ok(res.json.some((p) => p.id === compra.json.id));
+    const pedido = res.json.find((p) => p.id === compra.json.id);
+    assert.ok(pedido, 'El pedido tiene que aparecer en el listado');
+    assert.equal(pedido.comprador.email, COMPRADOR.email);
   });
 
   test('el pedido de t1 no aparece en los pedidos de t2, aunque compartan la base', async () => {

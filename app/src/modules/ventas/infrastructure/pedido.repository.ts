@@ -12,6 +12,18 @@ export interface ItemPedido {
   precioCentavos: number;
 }
 
+export interface DatosComprador {
+  nombre: string;
+  email: string;
+  telefono?: string;
+}
+
+export interface DatosEnvio {
+  direccion: string;
+  ciudad: string;
+  codigoPostal: string;
+}
+
 export interface Pedido {
   id: string;
   tiendaId: string;
@@ -21,6 +33,8 @@ export interface Pedido {
   totalCentavos: number;
   moneda: string;
   pagoReferencia: string | null;
+  comprador: DatosComprador;
+  envio: DatosEnvio;
   creadoEn: Date;
   items?: ItemPedido[];
 }
@@ -40,6 +54,8 @@ export class PedidoRepository {
       claveIdempotencia: string;
       huella: string;
       items: { productoId: string; cantidad: number }[];
+      comprador: DatosComprador;
+      envio: DatosEnvio;
     },
   ): Promise<{ pedido: Pedido; creado: boolean }> {
     return this.db.conTienda(tiendaId, async (c) => {
@@ -79,11 +95,26 @@ export class PedidoRepository {
       const id = randomUUID();
       const { rows } = await c.query(
         `INSERT INTO pedidos
-           (id, tienda_id, clave_idempotencia, huella, estado, total_centavos, moneda)
-         VALUES ($1, $2, $3, $4, 'PENDIENTE', $5, $6)
+           (id, tienda_id, clave_idempotencia, huella, estado, total_centavos, moneda,
+            comprador_nombre, comprador_email, comprador_telefono,
+            envio_direccion, envio_ciudad, envio_codigo_postal)
+         VALUES ($1, $2, $3, $4, 'PENDIENTE', $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (tienda_id, clave_idempotencia) DO NOTHING
          RETURNING *`,
-        [id, tiendaId, datos.claveIdempotencia, datos.huella, totalCentavos, moneda],
+        [
+          id,
+          tiendaId,
+          datos.claveIdempotencia,
+          datos.huella,
+          totalCentavos,
+          moneda,
+          datos.comprador.nombre,
+          datos.comprador.email,
+          datos.comprador.telefono ?? null,
+          datos.envio.direccion,
+          datos.envio.ciudad,
+          datos.envio.codigoPostal,
+        ],
       );
 
       // Carrera: otro request con la misma clave ganó el INSERT
@@ -178,6 +209,16 @@ export class PedidoRepository {
       totalCentavos: Number(r.total_centavos),
       moneda: String(r.moneda).trim(),
       pagoReferencia: r.pago_referencia,
+      comprador: {
+        nombre: r.comprador_nombre,
+        email: r.comprador_email,
+        ...(r.comprador_telefono ? { telefono: r.comprador_telefono } : {}),
+      },
+      envio: {
+        direccion: r.envio_direccion,
+        ciudad: r.envio_ciudad,
+        codigoPostal: r.envio_codigo_postal,
+      },
       creadoEn: r.creado_en,
     };
   }

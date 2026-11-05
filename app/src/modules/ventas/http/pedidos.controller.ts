@@ -35,6 +35,8 @@ export class PedidosController {
       tiendaId,
       claveIdempotencia: clave,
       items: dto.items,
+      comprador: dto.comprador,
+      envio: dto.envio,
     });
     res.status(creado ? 201 : 200);
     return pedido;

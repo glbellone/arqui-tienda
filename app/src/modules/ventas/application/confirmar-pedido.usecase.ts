@@ -2,12 +2,14 @@ import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common
 import { createHash } from 'crypto';
 import { PASARELA_PAGOS } from '../../pagos/domain/pasarela-pagos.port';
 import type { PasarelaPagos } from '../../pagos/domain/pasarela-pagos.port';
-import { Pedido, PedidoRepository } from '../infrastructure/pedido.repository';
+import { DatosComprador, DatosEnvio, Pedido, PedidoRepository } from '../infrastructure/pedido.repository';
 
 export interface ConfirmarPedidoCmd {
   tiendaId: string;
   claveIdempotencia: string;
   items: { productoId: string; cantidad: number }[];
+  comprador: DatosComprador;
+  envio: DatosEnvio;
 }
 
 @Injectable()
@@ -18,20 +20,20 @@ export class ConfirmarPedido {
   ) {}
 
   async ejecutar(cmd: ConfirmarPedidoCmd): Promise<{ pedido: Pedido; creado: boolean }> {
+    // La huella es solo del carrito: corregir un dato de contacto en un reintento no lo vuelve otro pedido.
     const huella = this.huellaDe(cmd.items);
 
     const { pedido, creado } = await this.repo.crearPendienteOExistente(cmd.tiendaId, {
       claveIdempotencia: cmd.claveIdempotencia,
       huella,
       items: cmd.items,
+      comprador: cmd.comprador,
+      envio: cmd.envio,
     });
 
     // Misma clave con otro carrito: es un error del cliente, no un reintento.
     if (pedido.huella !== huella) {
-      throw new UnprocessableEntityException(
-        'La Idempotency-Key ya se usó con un carrito distinto',
-      );
-
+      throw new UnprocessableEntityException('La Idempotency-Key ya se usó con un carrito distinto');
     }
 
     // Ya resuelto (PAGADO o RECHAZADO): devolver tal cual, sin cobrar de nuevo.

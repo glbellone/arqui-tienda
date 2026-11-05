@@ -50,6 +50,7 @@ export default function Pedidos({ tienda, pedidos, recargarPedidos }: ContextoPa
             <thead>
               <tr>
                 <th scope="col">Fecha</th>
+                <th scope="col">Cliente</th>
                 <th scope="col">Productos</th>
                 <th scope="col" className="alinear-derecha">
                   Total
@@ -61,7 +62,7 @@ export default function Pedidos({ tienda, pedidos, recargarPedidos }: ContextoPa
               {pedidos.estado === 'cargando' &&
                 Array.from({ length: 3 }, (_, i) => (
                   <tr key={i}>
-                    <td colSpan={4}>
+                    <td colSpan={5}>
                       <Esqueleto className="esqueleto-linea" />
                     </td>
                   </tr>
@@ -70,6 +71,15 @@ export default function Pedidos({ tienda, pedidos, recargarPedidos }: ContextoPa
                 pedidos.datos.map((p) => (
                   <tr key={p.id}>
                     <td className="texto-suave">{fecha.format(new Date(p.creadoEn))}</td>
+                    <td>
+                      <div className="celda-cliente">
+                        <strong>{p.comprador.nombre}</strong>
+                        <span>{[p.comprador.email, p.comprador.telefono].filter(Boolean).join(' · ')}</span>
+                        <span>
+                          {p.envio.direccion}, {p.envio.ciudad} ({p.envio.codigoPostal})
+                        </span>
+                      </div>
+                    </td>
                     <td>{p.items.map((i) => `${i.nombre} ×${i.cantidad}`).join(', ')}</td>
                     <td className="alinear-derecha">{formatearPrecio(p.total)}</td>
                     <td>
