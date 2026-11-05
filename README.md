@@ -37,7 +37,7 @@ El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localho
 | Servicio | Dirección |
 | --- | --- |
 | Página de la plataforma | http://localhost:5173 |
-| Estadísticas de la plataforma (usuario `admin`) | http://localhost:5173/admin/estadisticas |
+| Administración de la plataforma (`admin` / `admin123`): tiendas, solicitudes de Premium y estadísticas | http://localhost:5173/admin |
 | API | http://localhost:8000 |
 | Keycloak (consola: `admin` / `admin`) | http://localhost:8080 |
 | Pasarela de pagos simulada | http://localhost:4000 |
@@ -51,7 +51,7 @@ El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localho
 | `duenio.t2` | `duenio123` | Administra Cerámica Ñandú |
 | `duenio.p1` | `duenio123` | Administra Sastrería Ombú |
 | `comprador` | `comprador123` | Compra en las tiendas |
-| `admin` | `admin123` | Ve las estadísticas de toda la plataforma |
+| `admin` | `admin123` | Administra la plataforma: da de alta y de baja tiendas, aprueba los pases a Premium y ve las estadísticas |
 
 ### Comandos útiles
 
@@ -61,10 +61,16 @@ El panel de cada tienda está en `/panel`, por ejemplo http://la-yerbera.localho
 | Aplicar cambios de código de un servicio | `docker compose up -d --build <servicio>` |
 | Aplicar cambios en usuarios o roles de Keycloak | `docker compose down && docker compose up --build` |
 | Ver los logs de un servicio | `docker compose logs -f <servicio>` |
-| Bajar todo | `docker compose down` |
+| Bajar todo | `docker compose down --remove-orphans` |
+| Bajar todo y borrar los datos | `docker compose down -v --remove-orphans` |
 
-Los servicios son `frontend`, `gateway`, `app-pool`, `app-premium-a`, `db-pool`, `db-premium-a`,
-`analitica`, `db-analitica`, `keycloak`, `pasarela-mock` y `rabbitmq`.
+Los servicios son `frontend`, `gateway`, `tiendas`, `db-tiendas`, `app-pool`, `app-premium-a`, `db-pool`,
+`db-premium-a`, `analitica`, `db-analitica`, `keycloak`, `pasarela-mock` y `rabbitmq`. El servicio
+`tiendas` es el registro de tiendas y celdas, con su base `db-tiendas` (ADR-012).
+
+Cuando una tienda pasa a Premium, la plataforma crea su propia celda con la API de Docker: dos
+contenedores más (`app-premium-<id>` y `db-premium-<id>`) que no figuran en `docker-compose.yml`.
+Por eso, para bajar todo hace falta `--remove-orphans`: si no, quedan andando y la red no se puede borrar.
 
 Keycloak importa usuarios y roles solo al crear su contenedor: por eso esos cambios necesitan el
 `down`. Los cambios en el diseño de la pantalla de login, en cambio, se ven con solo recargar.
@@ -103,16 +109,19 @@ curl -i -X POST http://localhost:8000/v1/tiendas/t2/productos \
 npm test
 ```
 
-Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiendas y de estadísticas.
+Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiendas, checkout,
+estadísticas, alta y baja de tiendas y pase a Premium. El de Premium crea una celda nueva y muda la
+tienda, así que tarda un par de minutos. Para empezar de cero: `docker compose down -v --remove-orphans && npm test`.
 
 ## Estructura del repositorio
 
 ```
 .
 ├── frontend/           Sitio web: cada tienda (vitrina y panel del dueño) y la página de la plataforma
-├── app/                Backend (NestJS), un módulo por área: catálogo, tiendas, ventas y pagos
+├── app/                Backend (NestJS), un módulo por área: catálogo, ventas y pagos
 │   └── db/init/        Esquema de la base de datos
 ├── gateway/            Puerta de entrada de la API: identifica la tienda y deriva el pedido
+├── tiendas/            Registro de tiendas y celdas: alta y baja de tiendas y pase a Premium
 ├── analitica/          Estadísticas de la plataforma: escucha los eventos de RabbitMQ
 ├── pasarela-mock/      Pasarela de pagos simulada
 ├── infra/keycloak/     Usuarios, roles y diseño de la pantalla de login
