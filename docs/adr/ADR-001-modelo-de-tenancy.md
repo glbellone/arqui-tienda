@@ -20,6 +20,7 @@ Vamos a alojar las tiendas estándar en un pool compartido y cada tienda Premium
 
 - Se cumple el contrato Premium y el costo del silo lo paga quien lo usa.
 - Hay que aprovisionar silos y migrar esquemas en varias bases. En producción, crear una celda Premium es automático con IaC: crear la base y la app desde la misma imagen, correr migraciones, mudar los datos de la tienda y actualizar el registro de ruteo.
+- El aprovisionamiento de las celdas Premium y la mudanza de la tienda los hace el servicio de Tiendas e Inquilinos: ver ADR-012.
 
 ## NFRs afectados
 

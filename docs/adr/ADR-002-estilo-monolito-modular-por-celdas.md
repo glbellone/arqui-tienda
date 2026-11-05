@@ -20,6 +20,7 @@ Vamos a construir un único monolito modular (un módulo por bounded context) y 
 
 - Un solo código y un solo pipeline.
 - Los módulos pueden extraerse a servicios más adelante si un contexto lo justifica.
+- Tiendas e Inquilinos no es un módulo de la app sino un servicio aparte (ADR-012): el registro tiene que ser uno solo y la app corre una vez por celda. Lo mismo pasa con Analítica (ADR-006), que junta datos de todas las celdas.
 
 ## NFRs afectados
 
