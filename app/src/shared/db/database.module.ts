@@ -1,20 +1,19 @@
 import { Global, Inject, Module, OnModuleDestroy } from '@nestjs/common';
-import { Pool } from 'pg';
-import { PG_POOL, TenantDb } from './tenant-db';
+import type { Sequelize } from 'sequelize';
+import { EsquemaInicializador } from './esquema-inicializador';
+import { ModelosPorTienda } from './modelos-por-tienda';
+import { SEQUELIZE, crearSequelize } from './sequelize.provider';
+import { TenantDb } from './tenant-db';
 
-// Cada celda apunta a su propia base con DB_URL: el código no sabe si es pool o Premium.
 @Global()
 @Module({
-  providers: [
-    { provide: PG_POOL, useFactory: () => new Pool({ connectionString: process.env.DB_URL }) },
-    TenantDb,
-  ],
-  exports: [TenantDb],
+  providers: [{ provide: SEQUELIZE, useFactory: crearSequelize }, TenantDb, ModelosPorTienda, EsquemaInicializador],
+  exports: [SEQUELIZE, TenantDb, ModelosPorTienda],
 })
 export class DatabaseModule implements OnModuleDestroy {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(@Inject(SEQUELIZE) private readonly sequelize: Sequelize) {}
 
   async onModuleDestroy() {
-    await this.pool.end();
+    await this.sequelize.close();
   }
 }

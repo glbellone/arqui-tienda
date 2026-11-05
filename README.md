@@ -110,7 +110,7 @@ Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiend
 .
 ├── frontend/           Sitio web: cada tienda (vitrina y panel del dueño) y la página de la plataforma
 ├── app/                Backend (NestJS), un módulo por área: catálogo, tiendas, ventas y pagos
-│   └── db/init/        Esquema de la base de datos
+│   └── src/shared/db/  Conexión (Sequelize), tenancy y creación del esquema
 ├── gateway/            Puerta de entrada de la API: identifica la tienda y deriva el pedido
 ├── pasarela-mock/      Pasarela de pagos simulada
 ├── infra/keycloak/     Usuarios, roles y diseño de la pantalla de login
@@ -122,4 +122,4 @@ Levanta la plataforma si hace falta y corre los tests de aislamiento entre tiend
 
 ## Tecnologías
 
-React con Vite, NestJS, PostgreSQL, Keycloak, Express, RabbitMQ y Docker Compose.
+React con Vite, NestJS, PostgreSQL con Sequelize, Keycloak, Express, RabbitMQ y Docker Compose.
