@@ -2,6 +2,7 @@
 // la plataforma levantada con docker compose esté lista.
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { request } from 'node:http';
 
 export const GATEWAY = new URL(process.env.GATEWAY_URL ?? 'http://localhost:8000');
@@ -54,6 +55,15 @@ export function pedir({ metodo = 'GET', ruta, host = GATEWAY.host, token, cuerpo
 }
 
 export const enTienda = (subdominio) => `${subdominio}.${DOMINIO}`;
+
+/** Datos de contacto y de entrega que manda el checkout. */
+export const COMPRADOR = { nombre: 'Ana Pérez', email: 'ana@example.com', telefono: '11 5555-1234' };
+export const ENVIO = { direccion: 'Av. Vergara 2222', ciudad: 'Hurlingham', codigoPostal: '1686' };
+
+/** Confirma un pedido desde el subdominio de una tienda, como lo hace el checkout. */
+export function comprar(host, items, clave = randomUUID(), datos = { comprador: COMPRADOR, envio: ENVIO }) {
+  return pedir({ metodo: 'POST', ruta: '/v1/pedidos', host, cuerpo: { items, ...datos }, headers: { 'Idempotency-Key': clave } });
+}
 
 export async function login(usuario, clave) {
   const res = await llamar(`${KEYCLOAK}/realms/tiendas/protocol/openid-connect/token`, {

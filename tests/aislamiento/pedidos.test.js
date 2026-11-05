@@ -5,21 +5,13 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { before, describe, test } from 'node:test';
-import { enTienda, esperarPlataforma, login, pedir } from './plataforma.js';
+import { COMPRADOR, ENVIO, comprar, enTienda, esperarPlataforma, login, pedir } from './plataforma.js';
 
 const YERBERA = enTienda('la-yerbera'); // t1, celda pool
 const NANDU = enTienda('ceramica-nandu'); // t2, misma celda pool
 
 const sufijo = Date.now().toString(36);
 const PRECIO = 1500;
-
-const COMPRADOR = { nombre: 'Ana Pérez', email: 'ana@example.com', telefono: '11 5555-1234' };
-const ENVIO = { direccion: 'Av. Vergara 2222', ciudad: 'Hurlingham', codigoPostal: '1686' };
-
-/** Confirma un pedido desde el subdominio de una tienda, como lo hace el checkout. */
-function comprar(host, items, clave = randomUUID(), datos = { comprador: COMPRADOR, envio: ENVIO }) {
-  return pedir({ metodo: 'POST', ruta: '/v1/pedidos', host, cuerpo: { items, ...datos }, headers: { 'Idempotency-Key': clave } });
-}
 
 describe('Checkout y pedidos', () => {
   let tokenT1;
