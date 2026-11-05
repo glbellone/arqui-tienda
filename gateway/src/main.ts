@@ -4,10 +4,9 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { IncomingMessage } from 'node:http';
 import { Registro, subdominioDeTienda, type TiendaRegistrada } from './registro';
 
-/** URL de cada celda, por ejemplo {"pool": "http://app-pool:3000"}. */
-const celdas: Record<string, string> = JSON.parse(process.env.CELDAS_URLS ?? '{}');
-
-const registro = Registro.desdeArchivo(process.env.REGISTRO_TIENDAS ?? 'registro-tiendas.json');
+/** Registro de tiendas y celdas: lo provee el servicio de Tiendas (ADR-012). */
+const registro = new Registro(process.env.TIENDAS_URL ?? 'http://tiendas:3000', Number(process.env.REGISTRO_INTERVALO_MS ?? 2000));
+registro.iniciar();
 
 /** Dominio bajo el cual se publica cada tienda: {subdominio}.{DOMINIO_BASE} (ADR-011). */
 const dominioBase = process.env.DOMINIO_BASE ?? 'localhost';
@@ -43,7 +42,14 @@ function perfilPublico(id: string, tienda: TiendaRegistrada) {
 const app = express();
 
 app.get('/health', (_req, res) => {
-  res.json({ estado: 'ok', celdas: Object.keys(celdas) });
+  res.json({ estado: registro.listo ? 'ok' : 'iniciando', celdas: registro.celdas() });
+});
+
+// 0. Hasta tener el registro, el gateway no sabe a dónde mandar nada.
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  if (registro.listo) return next();
+  res.setHeader('Retry-After', '5');
+  problema(res, 503, 'No disponible', 'La plataforma está iniciando. Probá de nuevo en unos segundos.');
 });
 
 // 1. Si viene un token, tiene que ser válido. Los roles los controla cada módulo de la app.
@@ -93,10 +99,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   const [, tiendaId, resto] = match;
   const tienda = registro.buscar(tiendaId);
-  const destino = tienda && celdas[tienda.celda];
+  const destino = tienda && registro.urlDeCelda(tienda.celda);
   if (!tienda || !destino) return problema(res, 404, 'No encontrado', `La tienda ${tiendaId} no existe`);
 
-  // El perfil público de la tienda lo responde el gateway con el registro, hasta que exista el módulo Tiendas.
+  // El perfil público de la tienda lo responde el gateway con su copia del registro (ADR-012).
   if (!resto || resto === '/') {
     if (req.method !== 'GET') return problema(res, 405, 'Método no permitido', 'Solo se puede consultar la tienda');
     return void res.json(perfilPublico(tiendaId, tienda));

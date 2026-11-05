@@ -41,7 +41,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      CELDAS_URLS: '{"pool": "http://app-pool:3000", "premium-a": "http://app-premium-a:3000"}'
+      # El registro de tiendas y celdas lo provee el servicio de Tiendas (ADR-012).
+      TIENDAS_URL: http://tiendas:3000
       # ADR-011: cada tienda se publica en {subdominio}.{DOMINIO_BASE}.
       DOMINIO_BASE: localhost
       URL_PUBLICA_TIENDA: http://{subdominio}.localhost:5173
@@ -50,9 +51,36 @@ services:
       # Las rutas /v1/admin/ van al servicio de Analítica (ADR-006).
       ANALITICA_URL: http://analitica:3000
     depends_on:
+      - tiendas
       - app-pool
       - app-premium-a
       - analitica
+
+  # --- Tiendas e Inquilinos (ADR-012): el registro de tiendas y celdas, con su propia base ---
+  tiendas:
+    build: ./tiendas
+    restart: unless-stopped
+    environment:
+      DB_URL: postgres://postgres:postgres@db-tiendas:5432/registro
+      OIDC_ISSUER: http://localhost:8080/realms/tiendas
+      OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
+    depends_on:
+      db-tiendas:
+        condition: service_healthy
+
+  db-tiendas:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: registro
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./tiendas/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d registro"]
+      interval: 5s
+      retries: 10
 
   # --- Celda pool: tiendas estándar, base compartida con row-level security ---
   app-pool:

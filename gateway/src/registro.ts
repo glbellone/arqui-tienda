@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 /** Una tienda en el registro: dónde se publica, en qué celda vive y sus datos públicos. */
 export interface TiendaRegistrada {
   subdominio: string;
@@ -8,23 +6,54 @@ export interface TiendaRegistrada {
   rubro: string;
   plan: 'Estándar' | 'Premium';
   color: string;
+  /** mudandose: se está pasando a otra celda; mientras tanto el gateway frena las escrituras (ADR-012). */
+  estado: 'activa' | 'mudandose';
+}
+
+/** Lo que devuelve el servicio de Tiendas: las tiendas y la URL de cada celda. */
+interface Instantanea {
+  tiendas: Record<string, TiendaRegistrada>;
+  celdas: Record<string, string>;
 }
 
 /**
- * Registro tienda → subdominio y celda (ADR-004 y ADR-011).
- * Simplificación del TP: es un archivo. En producción lo provee el módulo Tiendas e Inquilinos.
+ * Registro tienda → subdominio y celda (ADR-004 y ADR-011). Su dueño es el servicio de Tiendas
+ * (ADR-012): el gateway guarda una copia en memoria y la refresca cada pocos segundos. Si el
+ * servicio no responde, sigue ruteando con la última copia buena.
  */
 export class Registro {
-  private readonly porId: Map<string, TiendaRegistrada>;
-  private readonly idPorSubdominio = new Map<string, string>();
+  private porId = new Map<string, TiendaRegistrada>();
+  private idPorSubdominio = new Map<string, string>();
+  private urlsDeCeldas = new Map<string, string>();
+  private cargado = false;
 
-  constructor(datos: Record<string, TiendaRegistrada>) {
-    this.porId = new Map(Object.entries(datos));
-    for (const [id, tienda] of this.porId) this.idPorSubdominio.set(tienda.subdominio.toLowerCase(), id);
+  constructor(
+    private readonly url: string,
+    private readonly intervaloMs: number,
+  ) {}
+
+  /** Empieza a leer el registro y lo vuelve a leer cada `intervaloMs`. */
+  iniciar(): void {
+    const leer = () =>
+      this.actualizar().catch((error) => console.warn(`No se pudo leer el registro de tiendas: ${String(error)}`));
+    void leer();
+    setInterval(leer, this.intervaloMs).unref();
   }
 
-  static desdeArchivo(ruta: string): Registro {
-    return new Registro(JSON.parse(readFileSync(ruta, 'utf8')));
+  private async actualizar(): Promise<void> {
+    const res = await fetch(`${this.url}/interno/registro`, { signal: AbortSignal.timeout(this.intervaloMs) });
+    if (!res.ok) throw new Error(`respondió ${res.status}`);
+    const { tiendas, celdas } = (await res.json()) as Instantanea;
+
+    this.porId = new Map(Object.entries(tiendas));
+    this.idPorSubdominio = new Map([...this.porId].map(([id, t]) => [t.subdominio.toLowerCase(), id]));
+    this.urlsDeCeldas = new Map(Object.entries(celdas));
+    this.cargado = true;
+  }
+
+  /** false hasta la primera lectura: recién arrancado, el gateway todavía no sabe rutear. */
+  get listo(): boolean {
+    return this.cargado;
   }
 
   buscar(id: string): TiendaRegistrada | undefined {
@@ -33,6 +62,14 @@ export class Registro {
 
   idDelSubdominio(subdominio: string): string | undefined {
     return this.idPorSubdominio.get(subdominio.toLowerCase());
+  }
+
+  urlDeCelda(celda: string): string | undefined {
+    return this.urlsDeCeldas.get(celda);
+  }
+
+  celdas(): string[] {
+    return [...this.urlsDeCeldas.keys()];
   }
 }
 
