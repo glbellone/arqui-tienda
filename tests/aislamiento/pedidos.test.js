@@ -125,15 +125,26 @@ describe('Checkout y pedidos', () => {
     assert.ok(!res.json.some((p) => p.id === compra.json.id));
   });
 
-  // Pendientes: hoy el listado de pedidos no pide login ni controla de qué tienda es el dueño.
-  // Cuando se proteja, sacar el `todo` y tienen que pasar.
-  test('sin token no se pueden ver los pedidos (401)', { todo: 'falta proteger el listado de pedidos' }, async () => {
+  // El listado tiene datos personales de los compradores: solo lo ve el dueño de la tienda.
+  test('sin token no se pueden ver los pedidos (401)', async () => {
     const res = await pedir({ ruta: '/v1/pedidos', host: YERBERA });
     assert.equal(res.status, 401);
   });
 
-  test('el dueño de t1 no puede ver los pedidos de t2 (403)', { todo: 'falta proteger el listado de pedidos' }, async () => {
+  test('un comprador logueado no puede ver los pedidos (403)', async () => {
+    const tokenComprador = await login('comprador', 'comprador123');
+    const res = await pedir({ ruta: '/v1/pedidos', host: YERBERA, token: tokenComprador });
+    assert.equal(res.status, 403);
+  });
+
+  test('el dueño de t1 no puede ver los pedidos de t2 (403)', async () => {
     const res = await pedir({ ruta: '/v1/tiendas/t2/pedidos', token: tokenT1 });
+    assert.equal(res.status, 403);
+    assert.equal(res.json.status, 403, 'El error tiene que venir en formato Problem Details');
+  });
+
+  test('el dueño de t1 tampoco los ve entrando por el subdominio de t2 (403)', async () => {
+    const res = await pedir({ ruta: '/v1/pedidos', host: NANDU, token: tokenT1 });
     assert.equal(res.status, 403);
   });
 });

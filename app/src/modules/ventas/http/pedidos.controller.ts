@@ -1,5 +1,8 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
+import { AuthGuard } from '../../../shared/auth/auth.guard';
+import { Roles } from '../../../shared/auth/roles.decorator';
+import { UsuarioActual, type Usuario } from '../../../shared/auth/usuario';
 import { ConfirmarPedido } from '../application/confirmar-pedido';
 import { ListarPedidos } from '../application/listar-pedidos';
 import type { Pedido } from '../domain/pedido';
@@ -47,9 +50,15 @@ export class PedidosController {
     return aDto(pedido);
   }
 
+  /**
+   * Requiere el rol duenio. Que sea el dueño de ESTA tienda lo controla el caso de uso
+   * (regla de aislamiento): el controller solo traduce HTTP a una consulta.
+   */
   @Get()
-  async listar(@Param('tiendaId') tiendaId: string) {
-    const pedidos = await this.listarPedidos.ejecutar({ tiendaId });
+  @UseGuards(AuthGuard)
+  @Roles('duenio')
+  async listar(@Param('tiendaId') tiendaId: string, @UsuarioActual() usuario: Usuario) {
+    const pedidos = await this.listarPedidos.ejecutar({ tiendaId, solicitante: usuario });
     return pedidos.map(aDto);
   }
 }
