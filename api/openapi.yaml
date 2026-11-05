@@ -10,13 +10,22 @@ info:
     Cada tienda se publica en su propio subdominio (ADR-011). Desde el subdominio de una tienda
     solo se llega a esa tienda: las rutas de la vitrina (tag Vitrina) no llevan el id, porque el
     gateway lo resuelve a partir del host y las traduce a /v1/tiendas/{tiendaId}/... (ADR-009).
+
+    Mientras una tienda se muda de celda (pase a Premium, ADR-012), el gateway responde 503 con
+    `Retry-After: 30` a cualquier pedido a esa tienda que no sea GET, HEAD u OPTIONS.
 servers:
   - url: http://localhost:8000
     description: Gateway local (docker compose)
 security: []
 tags:
   - name: Administración
-    description: Rutas del dominio de la plataforma, solo para el rol admin. Las atiende el servicio de Analítica (ADR-006).
+    description: |
+      Rutas del dominio de la plataforma, solo para el rol admin. Las estadísticas las atiende el servicio
+      de Analítica (ADR-006); las tiendas y las solicitudes, el servicio de Tiendas e Inquilinos (ADR-012).
+  - name: Plan
+    description: |
+      Plan de la tienda y pase a Premium, para su dueño. Lo atiende el servicio de Tiendas e Inquilinos
+      (ADR-012), no la celda. Desde el subdominio de la tienda, /v1/plan y /v1/plan/solicitud.
   - name: Tiendas
     description: Datos públicos de las tiendas de la plataforma.
   - name: Catálogo
@@ -45,6 +54,134 @@ paths:
                 items: { $ref: '#/components/schemas/EstadisticaTienda' }
         '401': { $ref: '#/components/responses/Problema' }
         '403': { $ref: '#/components/responses/Problema' }
+  /v1/admin/tiendas:
+    get:
+      tags: [Administración]
+      operationId: listarTiendasAdmin
+      summary: Todas las tiendas de la plataforma
+      description: Requiere el rol admin. Incluye el plan, la celda donde vive cada tienda y si se está mudando.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: Las tiendas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TiendaAdmin' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+    post:
+      tags: [Administración]
+      operationId: crearTienda
+      summary: Dar de alta una tienda
+      description: |
+        Requiere el rol admin. La tienda empieza en la celda pool con plan Estándar. Crea también el
+        usuario del dueño en Keycloak y habilita el login desde su subdominio. Si un paso falla, se
+        deshacen los anteriores (compensación). La contraseña del dueño se devuelve una sola vez.
+      security:
+        - oidc: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevaTienda' }
+      responses:
+        '201':
+          description: Tienda creada
+          headers:
+            Location:
+              description: URL de la tienda creada
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TiendaCreada' }
+        '400': { $ref: '#/components/responses/Problema' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+        '409': { $ref: '#/components/responses/Problema' }
+        '502': { $ref: '#/components/responses/Problema' }
+  /v1/admin/tiendas/{tiendaId}:
+    parameters:
+      - $ref: '#/components/parameters/TiendaId'
+    delete:
+      tags: [Administración]
+      operationId: darDeBajaTienda
+      summary: Dar de baja una tienda
+      description: |
+        Requiere el rol admin. Saca la tienda del registro, borra sus datos de la celda (o la celda
+        entera, si era una celda Premium creada para ella) y borra a su dueño de Keycloak.
+        409 si la tienda se está mudando de celda.
+      security:
+        - oidc: []
+      responses:
+        '204': { description: Tienda dada de baja }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+        '404': { $ref: '#/components/responses/Problema' }
+        '409': { $ref: '#/components/responses/Problema' }
+  /v1/admin/solicitudes:
+    get:
+      tags: [Administración]
+      operationId: listarSolicitudesPremium
+      summary: Solicitudes de pase a Premium
+      description: Requiere el rol admin. De la más reciente a la más antigua, con el paso de la mudanza en curso.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: Las solicitudes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SolicitudAdmin' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+  /v1/admin/solicitudes/{solicitudId}/aprobar:
+    parameters:
+      - $ref: '#/components/parameters/SolicitudId'
+    post:
+      tags: [Administración]
+      operationId: aprobarSolicitudPremium
+      summary: Aprobar un pase a Premium
+      description: |
+        Requiere el rol admin. Responde enseguida y la mudanza sigue en segundo plano: se crea una celda
+        nueva para la tienda, se frenan sus escrituras, se copian y verifican sus datos y se cambia el
+        ruteo. El avance se sigue en GET /v1/admin/solicitudes (campo `paso`).
+      security:
+        - oidc: []
+      responses:
+        '202':
+          description: Mudanza en curso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SolicitudAdmin' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+        '404': { $ref: '#/components/responses/Problema' }
+        '409': { $ref: '#/components/responses/Problema' }
+  /v1/admin/solicitudes/{solicitudId}/rechazar:
+    parameters:
+      - $ref: '#/components/parameters/SolicitudId'
+    post:
+      tags: [Administración]
+      operationId: rechazarSolicitudPremium
+      summary: Rechazar un pase a Premium
+      description: Requiere el rol admin. Solo se pueden rechazar las solicitudes pendientes.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: Solicitud rechazada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SolicitudAdmin' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+        '404': { $ref: '#/components/responses/Problema' }
+        '409': { $ref: '#/components/responses/Problema' }
   /v1/tiendas/{tiendaId}:
     parameters:
       - $ref: '#/components/parameters/TiendaId'
@@ -52,7 +189,7 @@ paths:
       tags: [Tiendas]
       operationId: obtenerTienda
       summary: Datos públicos de una tienda
-      description: Público. Lo responde el gateway con su registro, hasta que exista el módulo Tiendas e Inquilinos.
+      description: Público. Lo responde el gateway con su copia del registro, que le provee el servicio de Tiendas e Inquilinos (ADR-012).
       responses:
         '200':
           description: La tienda
@@ -260,6 +397,52 @@ paths:
                 items: { $ref: '#/components/schemas/Pedido' }
         '401': { $ref: '#/components/responses/Problema' }
         '403': { $ref: '#/components/responses/Problema' }
+  /v1/tiendas/{tiendaId}/plan:
+    parameters:
+      - $ref: '#/components/parameters/TiendaId'
+    get:
+      tags: [Plan]
+      operationId: obtenerPlan
+      summary: Plan de la tienda y la última solicitud de pase a Premium
+      description: Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL.
+      security:
+        - oidc: []
+      responses:
+        '200':
+          description: El plan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlanTienda' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+        '404': { $ref: '#/components/responses/Problema' }
+  /v1/tiendas/{tiendaId}/plan/solicitud:
+    parameters:
+      - $ref: '#/components/parameters/TiendaId'
+    post:
+      tags: [Plan]
+      operationId: pedirPremium
+      summary: Pedir el pase a Premium
+      description: |
+        Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL. La
+        solicitud queda pendiente hasta que la apruebe el administrador. 409 si la tienda ya es Premium
+        o si ya tiene una solicitud abierta.
+      security:
+        - oidc: []
+      responses:
+        '201':
+          description: Solicitud creada
+          headers:
+            Location:
+              description: URL del plan de la tienda
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SolicitudPremium' }
+        '401': { $ref: '#/components/responses/Problema' }
+        '403': { $ref: '#/components/responses/Problema' }
+        '404': { $ref: '#/components/responses/Problema' }
+        '409': { $ref: '#/components/responses/Problema' }
 components:
   securitySchemes:
     oidc:
@@ -272,6 +455,11 @@ components:
       required: true
       description: Identificador de la tienda. El gateway lo usa para rutear a su celda.
       schema: { type: string, pattern: '^[a-z0-9-]{1,40}$', example: t1 }
+    SolicitudId:
+      name: solicitudId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -371,6 +559,88 @@ components:
               nombre: { type: string, example: Yerba mate 1kg }
               cantidad: { type: integer, example: 2 }
               precioCentavos: { type: integer, description: Precio unitario al momento de la compra, example: 425000 }
+    TiendaAdmin:
+      type: object
+      description: Una tienda tal como la ve el administrador, con su celda.
+      properties:
+        id: { type: string, example: t100 }
+        subdominio: { type: string, example: vivero-flores }
+        nombre: { type: string, example: Vivero Flores }
+        rubro: { type: string, example: Plantas y macetas }
+        color: { type: string, example: '#4D7C0F' }
+        plan: { type: string, enum: [Estándar, Premium] }
+        celda: { type: string, description: Celda donde vive la tienda, example: pool }
+        estado: { type: string, enum: [activa, mudandose], description: 'mudandose: se está pasando a otra celda' }
+        creadaEn: { type: string, format: date-time }
+        url: { type: string, example: 'http://vivero-flores.localhost:5173' }
+    NuevaTienda:
+      type: object
+      required: [nombre, subdominio, rubro, duenio]
+      properties:
+        nombre: { type: string, maxLength: 80, example: Vivero Flores }
+        subdominio: { type: string, pattern: '^[a-z0-9](-?[a-z0-9])*$', minLength: 3, maxLength: 40, example: vivero-flores }
+        rubro: { type: string, maxLength: 80, example: Plantas y macetas }
+        color: { type: string, pattern: '^#[0-9a-fA-F]{6}$', description: Si no viene, se elige uno al azar }
+        duenio:
+          type: object
+          required: [nombre, email]
+          properties:
+            nombre: { type: string, maxLength: 80, example: Flor Gómez }
+            email: { type: string, format: email, example: flor@example.com }
+    TiendaCreada:
+      type: object
+      properties:
+        tienda: { $ref: '#/components/schemas/TiendaAdmin' }
+        duenio:
+          type: object
+          description: Usuario del dueño en Keycloak. La contraseña se muestra una sola vez.
+          properties:
+            usuario: { type: string, example: flor@example.com }
+            clave: { type: string }
+    EstadoSolicitud:
+      type: string
+      enum: [pendiente, en-curso, completada, fallida, rechazada]
+    SolicitudPremium:
+      type: object
+      description: La solicitud tal como la ve el dueño. Los detalles de la mudanza no se muestran.
+      properties:
+        id: { type: string, format: uuid }
+        estado: { $ref: '#/components/schemas/EstadoSolicitud' }
+        creadaEn: { type: string, format: date-time }
+        actualizadaEn: { type: string, format: date-time }
+    PlanTienda:
+      type: object
+      properties:
+        plan: { type: string, enum: [Estándar, Premium] }
+        solicitud:
+          allOf: [{ $ref: '#/components/schemas/SolicitudPremium' }]
+          nullable: true
+          description: La última solicitud de pase a Premium, o null si nunca pidió
+    SolicitudAdmin:
+      type: object
+      description: La solicitud tal como la ve el administrador, con el avance de la mudanza.
+      properties:
+        id: { type: string, format: uuid }
+        tiendaId: { type: string, example: t100 }
+        estado: { $ref: '#/components/schemas/EstadoSolicitud' }
+        paso:
+          type: string
+          nullable: true
+          enum: [creando-celda, frenando-escrituras, copiando-datos, verificando, cambiando-ruteo, limpiando-pool]
+          description: Paso de la mudanza en curso
+        celdaDestino: { type: string, nullable: true, example: premium-t100 }
+        error: { type: string, nullable: true, description: Por qué falló la mudanza }
+        creadaEn: { type: string, format: date-time }
+        actualizadaEn: { type: string, format: date-time }
+        tienda:
+          type: object
+          description: Datos de la tienda. No viene si la tienda se dio de baja.
+          properties:
+            nombre: { type: string }
+            subdominio: { type: string }
+            plan: { type: string, enum: [Estándar, Premium] }
+            celda: { type: string }
+            color: { type: string }
     Problema:
       type: object
       description: Problem Details (RFC 9457)
