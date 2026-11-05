@@ -1,16 +1,15 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
-import type { Registro } from './registro';
+import { autenticar, exigirRol } from './auth';
+import { leerNuevaTienda, type GestionDeTiendas } from './gestion';
+import { async, ErrorDeNegocio, problema } from './http';
+import type { Registro, Tienda } from './registro';
 
-export function problema(res: Response, status: number, title: string, detail: string) {
-  res.status(status).type('application/problem+json').json({ type: 'about:blank', title, status, detail });
-}
+const urlPublica = process.env.URL_PUBLICA_TIENDA ?? 'http://{subdominio}.localhost:5173';
 
-/** Envuelve un handler async para que los errores lleguen al manejador de errores de Express. */
-export const async =
-  (handler: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
-    handler(req, res).catch(next);
+/** La tienda tal como la ve el administrador, con la dirección donde se publica. */
+const aDto = (t: Tienda) => ({ ...t, url: urlPublica.replace('{subdominio}', t.subdominio) });
 
-export function crearApi(registro: Registro) {
+export function crearApi(registro: Registro, gestion: GestionDeTiendas) {
   const app = express();
   app.use(express.json());
 
@@ -26,11 +25,42 @@ export function crearApi(registro: Registro) {
     }),
   );
 
-  app.use((_req: Request, res: Response) => problema(res, 404, 'No encontrado', 'Ruta inexistente'));
+  // --- Administración de la plataforma: solo el rol admin ---
+  const admin = express.Router();
+  admin.use(autenticar, exigirRol('admin', 'Solo el administrador gestiona las tiendas'));
+
+  admin.get(
+    '/tiendas',
+    async(async (_req, res) => {
+      res.json((await registro.tiendas()).map(aDto));
+    }),
+  );
+
+  admin.post(
+    '/tiendas',
+    async(async (req, res) => {
+      const { tienda, duenio } = await gestion.crear(leerNuevaTienda(req.body));
+      res.status(201).location(`/v1/admin/tiendas/${tienda.id}`).json({ tienda: aDto(tienda), duenio });
+    }),
+  );
+
+  admin.delete(
+    '/tiendas/:id',
+    async(async (req, res) => {
+      await gestion.darDeBaja(req.params.id);
+      res.status(204).end();
+    }),
+  );
+
+  app.use('/v1/admin', admin);
+
+  app.use((_req: Request, res: Response) => problema(res, 404, 'Ruta inexistente'));
 
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (error instanceof ErrorDeNegocio) return problema(res, error.status, error.message);
+    if ((error as { type?: string }).type === 'entity.parse.failed') return problema(res, 400, 'El cuerpo no es un JSON válido');
     console.error(error);
-    problema(res, 500, 'Error interno', 'Ocurrió un error inesperado');
+    problema(res, 500, 'Ocurrió un error inesperado');
   });
 
   return app;

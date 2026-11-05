@@ -4,8 +4,11 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { IncomingMessage } from 'node:http';
 import { Registro, subdominioDeTienda, type TiendaRegistrada } from './registro';
 
+/** Servicio de Tiendas (ADR-012): el registro, y el resto de la administración de la plataforma. */
+const tiendas = process.env.TIENDAS_URL ?? 'http://tiendas:3000';
+
 /** Registro de tiendas y celdas: lo provee el servicio de Tiendas (ADR-012). */
-const registro = new Registro(process.env.TIENDAS_URL ?? 'http://tiendas:3000', Number(process.env.REGISTRO_INTERVALO_MS ?? 2000));
+const registro = new Registro(tiendas, Number(process.env.REGISTRO_INTERVALO_MS ?? 2000));
 registro.iniciar();
 
 /** Dominio bajo el cual se publica cada tienda: {subdominio}.{DOMINIO_BASE} (ADR-011). */
@@ -14,7 +17,7 @@ const dominioBase = process.env.DOMINIO_BASE ?? 'localhost';
 /** Plantilla de la URL pública de una tienda, para que el panel pueda enlazarla. */
 const urlPublica = process.env.URL_PUBLICA_TIENDA ?? 'http://{subdominio}.localhost:5173';
 
-/** Servicio de Analítica (ADR-006): atiende las rutas /v1/admin/ de toda la plataforma. */
+/** Servicio de Analítica (ADR-006): atiende /v1/admin/estadisticas. */
 const analitica = process.env.ANALITICA_URL;
 
 const jwks = createRemoteJWKSet(
@@ -82,12 +85,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// 3. Las rutas de administración de la plataforma no son de ninguna tienda: van a Analítica.
-//    Llegan solo desde el dominio de la plataforma; en el subdominio de una tienda el paso 2 ya
-//    las tradujo a /v1/tiendas/{id}/..., así que desde una tienda no se alcanzan.
+// 3. Las rutas de administración de la plataforma no son de ninguna tienda: las estadísticas van a
+//    Analítica y el resto (tiendas, solicitudes) al servicio de Tiendas. Llegan solo desde el dominio
+//    de la plataforma; en el subdominio de una tienda el paso 2 ya las tradujo a /v1/tiendas/{id}/...
 app.use('/v1/admin', (req: Request, res: Response, next: NextFunction) => {
-  if (!analitica) return problema(res, 503, 'No disponible', 'El servicio de Analítica no está configurado');
-  (req as RequestConDestino).destino = analitica;
+  if (req.path.startsWith('/estadisticas')) {
+    if (!analitica) return problema(res, 503, 'No disponible', 'El servicio de Analítica no está configurado');
+    (req as RequestConDestino).destino = analitica;
+  } else {
+    (req as RequestConDestino).destino = tiendas;
+  }
   next();
 });
 

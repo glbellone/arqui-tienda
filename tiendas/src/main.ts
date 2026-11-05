@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
 import { crearApi } from './api';
+import { GestionDeTiendas } from './gestion';
+import { Keycloak } from './keycloak';
 import { Registro } from './registro';
 
 /**
@@ -8,9 +10,10 @@ import { Registro } from './registro';
  */
 const db = new Pool({ connectionString: process.env.DB_URL });
 const registro = new Registro(db);
+const gestion = new GestionDeTiendas(registro, new Keycloak());
 
 const puerto = Number(process.env.PORT ?? 3000);
-const servidor = crearApi(registro).listen(puerto, () => console.log(`Tiendas escuchando en el puerto ${puerto}`));
+const servidor = crearApi(registro, gestion).listen(puerto, () => console.log(`Tiendas escuchando en el puerto ${puerto}`));
 
 async function apagar() {
   servidor.close();
