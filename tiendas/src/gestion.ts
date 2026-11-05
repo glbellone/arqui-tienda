@@ -1,3 +1,4 @@
+import type { Aprovisionador } from './aprovisionamiento';
 import { borrarDatosDeTienda } from './celdas-db';
 import { ErrorDeNegocio } from './http';
 import type { Keycloak } from './keycloak';
@@ -54,6 +55,7 @@ export class GestionDeTiendas {
   constructor(
     private readonly registro: Registro,
     private readonly keycloak: Keycloak,
+    private readonly aprovisionador: Aprovisionador,
   ) {}
 
   /** Toda tienda nueva empieza en la celda pool, con plan Estándar. */
@@ -84,13 +86,19 @@ export class GestionDeTiendas {
   async darDeBaja(id: string): Promise<void> {
     const tienda = await this.registro.tienda(id);
     if (!tienda) throw new ErrorDeNegocio(404, `La tienda ${id} no existe`);
-    if (tienda.estado !== 'activa') throw new ErrorDeNegocio(409, 'La tienda se está mudando de celda: probá cuando termine');
+    const solicitud = await this.registro.ultimaSolicitud(id);
+    if (tienda.estado !== 'activa' || solicitud?.estado === 'en-curso') {
+      throw new ErrorDeNegocio(409, 'La tienda se está mudando de celda: probá cuando termine');
+    }
     const celda = await this.registro.celda(tienda.celda);
 
     // 1. Sale del registro: a los pocos segundos el gateway deja de rutearla.
     await this.registro.borrarTienda(id);
-    // 2. Sus datos se borran de su celda. 3. Su dueño ya no puede ingresar.
-    if (celda) await borrarDatosDeTienda(celda.hostDb, id);
+    // 2. Sus datos se borran de su celda. Si la celda era solo suya (la creó la mudanza a Premium),
+    //    se borra la celda entera: los contenedores, la base con sus datos y su fila en el registro.
+    if (celda?.dinamica) await this.aprovisionador.borrarCelda(celda.nombre);
+    else if (celda) await borrarDatosDeTienda(celda.hostDb, id);
+    // 3. Su dueño ya no puede ingresar.
     await this.keycloak.eliminarDuenios(id);
     await this.keycloak.quitarSitio(tienda.subdominio);
   }
