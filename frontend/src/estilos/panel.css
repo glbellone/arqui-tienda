@@ -703,3 +703,8 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Pase a Premium, dentro de la tarjeta del plan */
+.tarjeta-plan .aviso {
+  margin-bottom: 1rem;
+}
