@@ -95,7 +95,7 @@ function Presentacion({ sesion }: { sesion: Sesion | null }) {
       <section className="plataforma-portada">
         <p className="plataforma-antetitulo">Para emprendedores</p>
         <h1>Tu tienda online, con tu propia dirección</h1>
-        <p className="plataforma-bajada">Cargá tus productos, compartí tu enlace y vendé. Tus clientes ven solo tu tienda.</p>
+        <p className="plataforma-bajada">Cargá tus productos, compartí tu enlace y vendé.</p>
         {urlPanel ? (
           <a href={urlPanel} className="boton boton-grande">
             Ir al panel de mi tienda
