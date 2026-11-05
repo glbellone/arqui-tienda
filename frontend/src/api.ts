@@ -49,9 +49,7 @@ interface PedidoCrudo {
   items?: { productoId: string; nombre: string; cantidad: number; precioCentavos: number }[];
 }
 
-
-// AJUSTAR: debe dar la misma unidad que `precio.monto` de los productos. Si formatearMonto ya
-// divide por 100, devolvé los centavos sin dividir.
+// El backend guarda los importes en centavos; en el front se usan en pesos, como `precio.monto` de los productos.
 const aMonto = (centavos: number) => centavos / 100;
 
 function aPedido(p: PedidoCrudo): Pedido {
@@ -136,7 +134,7 @@ export const tiendaActual = {
   producto: (productoId: string) => pedir<Producto>(`/v1/productos/${encodeURIComponent(productoId)}`),
   crearProducto: (producto: NuevoProducto) =>
     pedir<Producto>('/v1/productos', { method: 'POST', body: JSON.stringify(producto) }),
-   confirmarPedido: async (claveIdempotencia: string, items: ItemPedidoNuevo[]) =>
+  confirmarPedido: async (claveIdempotencia: string, items: ItemPedidoNuevo[]) =>
     aPedido(
       await pedir<PedidoCrudo>('/v1/pedidos', {
         method: 'POST',

@@ -89,7 +89,7 @@ export default function Checkout({ tienda }: { tienda: Tienda }) {
       );
       setPedido(resultado);
       if (resultado.estado === 'PAGADO') {
-        carrito.vaciar(); // AJUSTAR: el método que tenga useCarrito para vaciar el carrito
+        carrito.vaciar();
         intento.current = null;
       } else if (resultado.estado === 'RECHAZADO') {
         intento.current = null; // un intento nuevo necesita una clave nueva
