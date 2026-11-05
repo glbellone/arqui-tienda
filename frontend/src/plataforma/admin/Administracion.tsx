@@ -7,11 +7,13 @@ import { iniciales } from '../../formato';
 import { NOMBRE_PLATAFORMA } from '../marca';
 import Estadisticas from './Estadisticas';
 import NuevaTienda from './NuevaTienda';
+import Solicitudes from './Solicitudes';
 import Tiendas from './Tiendas';
 
 /** Las gestiones del administrador, en el menú lateral. */
 const SECCIONES: { ruta: string; etiqueta: string; icono: NombreIcono }[] = [
   { ruta: '/admin/tiendas', etiqueta: 'Tiendas', icono: 'tienda' },
+  { ruta: '/admin/solicitudes', etiqueta: 'Solicitudes', icono: 'corona' },
   { ruta: '/admin/estadisticas', etiqueta: 'Estadísticas', icono: 'grafico' },
 ];
 
@@ -98,6 +100,7 @@ function LayoutAdmin({ sesion }: { sesion: Sesion }) {
             <Route index element={<Navigate to="/admin/tiendas" replace />} />
             <Route path="tiendas" element={<Tiendas />} />
             <Route path="tiendas/nueva" element={<NuevaTienda />} />
+            <Route path="solicitudes" element={<Solicitudes />} />
             <Route path="estadisticas" element={<Estadisticas />} />
             <Route path="*" element={<Navigate to="/admin/tiendas" replace />} />
           </Routes>
