@@ -8,7 +8,8 @@
 Hasta ahora el registro de tiendas era un archivo del gateway (ADR-004) y dar de alta una tienda o
 pasarla a Premium eran pasos a mano: editar el archivo, crear el usuario en Keycloak, levantar la
 celda y copiar los datos. Con miles de tiendas y un equipo de 12 personas eso no escala, y además el
-escenario pide que el administrador dé de alta tiendas y que el dueño pueda pasar a Premium (ADR-001).
+escenario pide que el administrador dé de alta tiendas y que el dueño pueda pasar a Premium (ADR-001)
+y volver a Estándar.
 
 Alguien tiene que ser el dueño de ese registro: qué tiendas existen, en qué celda vive cada una y
 qué celdas hay. El registro tiene que ser **uno solo** para toda la plataforma, porque de él depende
@@ -47,6 +48,15 @@ dónde vive cada tienda.
   la celda nueva y la solicitud queda `fallida` con el error. Si el servicio se reinicia en medio de
   una mudanza, al arrancar la termina (si el ruteo ya había cambiado) o la deshace, y borra los
   contenedores que no figuren en el registro.
+- **Vuelta a Estándar.** Es el mismo circuito al revés: el dueño lo pide, el admin lo aprueba y la
+  tienda se muda a la pool. No hay que crear nada, así que arranca en `frenando-escrituras`; la copia,
+  la verificación y el cambio de ruteo son iguales, y el último paso es **liberando-celda**: si la
+  celda Premium se había creado para la tienda, se borra entera (contenedores y base); si es una de
+  docker-compose, como `premium-a`, solo se borran los datos de la tienda. Antes de copiar se borra
+  lo que la tienda tuviera en la pool, por si quedaron restos de un pase anterior que no se pudo
+  limpiar. Si falla antes del cambio de ruteo, se borra lo copiado en la pool y la tienda sigue en
+  Premium. La solicitud guarda el plan pedido y las celdas de origen y destino, así la recuperación
+  al arrancar sabe qué terminar o qué deshacer en los dos sentidos.
 - **La copia de datos pasa por row-level security (ADR-003).** El servicio se conecta a las bases de
   las celdas con el usuario `migrador`, que no es dueño de las tablas: fija la tienda activa
   (`app.tienda_id`) igual que la app y solo ve y toca las filas de esa tienda. Un error en la copia
