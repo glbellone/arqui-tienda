@@ -38,7 +38,7 @@ export default function MiTienda({ tienda }: ContextoPanel) {
               </div>
               <div>
                 <dt>Color de la marca</dt>
-                <dd className="muestra-color">
+                <dd className="color-marca">
                   <span style={{ background: tienda.color } as CSSProperties} />
                   <span className="texto-mono">{tienda.color.toUpperCase()}</span>
                 </dd>

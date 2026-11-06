@@ -564,13 +564,14 @@
   font-weight: 500;
 }
 
-.muestra-color {
+.color-marca {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.muestra-color span:first-child {
+.color-marca span:first-child {
+  flex: none;
   width: 1.25rem;
   height: 1.25rem;
   border: 1px solid rgb(0 0 0 / 0.1);
