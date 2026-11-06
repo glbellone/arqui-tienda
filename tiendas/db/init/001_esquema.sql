@@ -24,21 +24,24 @@ CREATE TABLE tiendas (
   creada_en  timestamptz NOT NULL DEFAULT now()
 );
 
--- Pase de Estándar a Premium: el dueño lo pide, el admin lo aprueba y este servicio muda la tienda a una
--- celda nueva. `paso` dice en qué parte de la mudanza está; `celda_destino`, a qué celda va.
+-- Cambios de plan: el dueño lo pide, el admin lo aprueba y este servicio muda la tienda. A Premium va a
+-- una celda nueva, solo suya; a Estándar vuelve a la pool. `paso` dice en qué parte de la mudanza está.
 CREATE TABLE solicitudes_premium (
   id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   tienda_id      text        NOT NULL REFERENCES tiendas (id) ON DELETE CASCADE,
+  -- El plan al que quiere pasar: Premium (el pase) o Estándar (la vuelta).
+  plan_pedido    text        NOT NULL DEFAULT 'Premium' CHECK (plan_pedido IN ('Estándar', 'Premium')),
   estado         text        NOT NULL DEFAULT 'pendiente'
                  CHECK (estado IN ('pendiente', 'en-curso', 'completada', 'fallida', 'rechazada')),
   paso           text,
+  celda_origen   text,
   celda_destino  text,
   error          text,
   creada_en      timestamptz NOT NULL DEFAULT now(),
   actualizada_en timestamptz NOT NULL DEFAULT now()
 );
 
--- Una sola solicitud abierta por tienda: pedirla dos veces da 409.
+-- Una sola solicitud abierta por tienda, sea para ir o para volver: pedirla dos veces da 409.
 CREATE UNIQUE INDEX una_solicitud_abierta_por_tienda ON solicitudes_premium (tienda_id)
   WHERE estado IN ('pendiente', 'en-curso');
 

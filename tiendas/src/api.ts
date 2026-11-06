@@ -11,11 +11,11 @@ const urlPublica = process.env.URL_PUBLICA_TIENDA ?? 'http://{subdominio}.localh
 const aDto = (t: Tienda) => ({ ...t, url: urlPublica.replace('{subdominio}', t.subdominio) });
 
 /**
- * La solicitud tal como la ve el dueño: solo en qué estado está. Los pasos de la mudanza y la celda
- * son detalles de la arquitectura que el dueño no ve; para él es "Plan Premium".
+ * La solicitud tal como la ve el dueño: a qué plan pidió pasar y en qué estado está. Los pasos de la
+ * mudanza y las celdas son detalles de la arquitectura que el dueño no ve; para él es "Plan Premium".
  */
 const aSolicitudDelDuenio = (s: SolicitudPremium | null) =>
-  s && { id: s.id, estado: s.estado, creadaEn: s.creadaEn, actualizadaEn: s.actualizadaEn };
+  s && { id: s.id, plan: s.plan, estado: s.estado, creadaEn: s.creadaEn, actualizadaEn: s.actualizadaEn };
 
 export function crearApi(registro: Registro, gestion: GestionDeTiendas, mudanzas: Mudanzas) {
   const app = express();
@@ -60,7 +60,7 @@ export function crearApi(registro: Registro, gestion: GestionDeTiendas, mudanzas
     }),
   );
 
-  // Pase a Premium: el admin ve todas las solicitudes, con el paso de la mudanza en curso.
+  // Cambios de plan: el admin ve todas las solicitudes, con el paso de la mudanza en curso.
   admin.get(
     '/solicitudes',
     async(async (_req, res) => {
@@ -113,7 +113,8 @@ export function crearApi(registro: Registro, gestion: GestionDeTiendas, mudanzas
     '/solicitud',
     async(async (req, res) => {
       const id = (req.params as { id: string }).id;
-      const solicitud = await mudanzas.solicitar(id);
+      // Sin cuerpo, se pide el otro plan: Premium si es Estándar, Estándar si es Premium.
+      const solicitud = await mudanzas.solicitar(id, (req.body as { plan?: unknown } | undefined)?.plan);
       res.status(201).location(`/v1/tiendas/${id}/plan`).json(aSolicitudDelDuenio(solicitud));
     }),
   );

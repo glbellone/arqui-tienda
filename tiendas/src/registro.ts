@@ -25,20 +25,27 @@ export interface Celda {
 
 export type EstadoSolicitud = 'pendiente' | 'en-curso' | 'completada' | 'fallida' | 'rechazada';
 
-/** Pasos de la mudanza a Premium, en orden (ADR-012). */
+/**
+ * Pasos de una mudanza (ADR-012). A Premium: creando-celda … limpiando-pool. De vuelta a Estándar no
+ * hay que crear nada, y al final se libera la celda Premium: frenando-escrituras … liberando-celda.
+ */
 export type PasoMudanza =
   | 'creando-celda'
   | 'frenando-escrituras'
   | 'copiando-datos'
   | 'verificando'
   | 'cambiando-ruteo'
-  | 'limpiando-pool';
+  | 'limpiando-pool'
+  | 'liberando-celda';
 
 export interface SolicitudPremium {
   id: string;
   tiendaId: string;
+  /** El plan al que quiere pasar la tienda. */
+  plan: Plan;
   estado: EstadoSolicitud;
   paso: PasoMudanza | null;
+  celdaOrigen: string | null;
   celdaDestino: string | null;
   error: string | null;
   creadaEn: string;
@@ -74,8 +81,10 @@ const aCelda = (f: Record<string, unknown>): Celda => ({
 const aSolicitud = (f: Record<string, unknown>): SolicitudPremium => ({
   id: f.id as string,
   tiendaId: f.tienda_id as string,
+  plan: f.plan_pedido as Plan,
   estado: f.estado as EstadoSolicitud,
   paso: (f.paso as PasoMudanza | null) ?? null,
+  celdaOrigen: (f.celda_origen as string | null) ?? null,
   celdaDestino: (f.celda_destino as string | null) ?? null,
   error: (f.error as string | null) ?? null,
   creadaEn: new Date(f.creada_en as string).toISOString(),
@@ -135,8 +144,8 @@ export class Registro {
   }
 
   /** El cambio de ruteo de la mudanza: plan, celda y estado en un solo UPDATE, para que el gateway nunca vea un estado intermedio. */
-  async pasarAPremium(id: string, celda: string): Promise<void> {
-    await this.db.query("UPDATE tiendas SET plan = 'Premium', celda = $2, estado = 'activa' WHERE id = $1", [id, celda]);
+  async cambiarDeCelda(id: string, plan: Plan, celda: string): Promise<void> {
+    await this.db.query("UPDATE tiendas SET plan = $2, celda = $3, estado = 'activa' WHERE id = $1", [id, plan, celda]);
   }
 
   // --- Celdas creadas por este servicio (ADR-012) ---
@@ -156,8 +165,11 @@ export class Registro {
 
   // --- Solicitudes de pase a Premium ---
 
-  async crearSolicitud(tiendaId: string): Promise<SolicitudPremium> {
-    const { rows } = await this.db.query('INSERT INTO solicitudes_premium (tienda_id) VALUES ($1) RETURNING *', [tiendaId]);
+  async crearSolicitud(tiendaId: string, plan: Plan): Promise<SolicitudPremium> {
+    const { rows } = await this.db.query(
+      'INSERT INTO solicitudes_premium (tienda_id, plan_pedido) VALUES ($1, $2) RETURNING *',
+      [tiendaId, plan],
+    );
     return aSolicitud(rows[0]);
   }
 
@@ -188,10 +200,16 @@ export class Registro {
    */
   async actualizarSolicitud(
     id: string,
-    cambios: Partial<Pick<SolicitudPremium, 'estado' | 'paso' | 'celdaDestino' | 'error'>>,
+    cambios: Partial<Pick<SolicitudPremium, 'estado' | 'paso' | 'celdaOrigen' | 'celdaDestino' | 'error'>>,
     desde?: EstadoSolicitud,
   ): Promise<SolicitudPremium | null> {
-    const columnas: Record<string, string> = { estado: 'estado', paso: 'paso', celdaDestino: 'celda_destino', error: 'error' };
+    const columnas: Record<string, string> = {
+      estado: 'estado',
+      paso: 'paso',
+      celdaOrigen: 'celda_origen',
+      celdaDestino: 'celda_destino',
+      error: 'error',
+    };
     const sets: string[] = [];
     const valores: unknown[] = [id];
     for (const [campo, valor] of Object.entries(cambios)) {

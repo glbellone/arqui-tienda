@@ -2,7 +2,7 @@ import type { Aprovisionador } from './aprovisionamiento';
 import { nombreDeCelda } from './aprovisionamiento';
 import { borrarDatosDeTienda, conTiendaEnCelda, TABLAS_DE_TIENDA } from './celdas-db';
 import { ErrorDeNegocio } from './http';
-import type { Celda, PasoMudanza, Registro, SolicitudPremium } from './registro';
+import type { Celda, PasoMudanza, Plan, Registro, SolicitudPremium } from './registro';
 
 /**
  * Cuánto se espera para que el gateway vea un cambio en el registro: lo relee cada 2 s, así que
@@ -10,14 +10,16 @@ import type { Celda, PasoMudanza, Registro, SolicitudPremium } from './registro'
  */
 const ESPERA_GATEWAY_MS = Number(process.env.ESPERA_GATEWAY_MS ?? 6000);
 
+const PLANES: readonly Plan[] = ['Estándar', 'Premium'];
+
 const esperar = (ms: number) => new Promise((listo) => setTimeout(listo, ms));
 
 type Filas = Record<string, Record<string, unknown>[]>;
 
 /**
- * Pase de Estándar a Premium (ADR-012). El dueño lo pide, el admin lo aprueba y la tienda se muda a
- * una celda nueva, solo para ella:
+ * Cambios de plan (ADR-012). El dueño lo pide, el admin lo aprueba y la tienda se muda de celda.
  *
+ * A Premium, a una celda nueva solo para ella:
  *   1. creando-celda        la celda nueva, con la API de Docker.
  *   2. frenando-escrituras  la tienda pasa a `mudandose`: el gateway rechaza las escrituras (503).
  *   3. copiando-datos       tabla por tabla, con el usuario migrador (pasa por RLS).
@@ -25,7 +27,10 @@ type Filas = Record<string, Record<string, unknown>[]>;
  *   5. cambiando-ruteo      plan, celda y estado en un solo UPDATE: desde acá, la tienda vive en la celda nueva.
  *   6. limpiando-pool       se borran los datos viejos de la pool.
  *
- * Si algo falla antes del paso 5, se deshace todo y la tienda sigue como estaba.
+ * De vuelta a Estándar, a la pool: los pasos 2 a 5 iguales y, al final, `liberando-celda`: si la celda
+ * Premium era solo suya (la creó este servicio) se borra entera; si no, se borran sus datos.
+ *
+ * Si algo falla antes del cambio de ruteo, se deshace todo y la tienda sigue como estaba.
  */
 export class Mudanzas {
   constructor(
@@ -33,16 +38,20 @@ export class Mudanzas {
     private readonly aprovisionador: Aprovisionador,
   ) {}
 
-  /** El dueño pide el pase. 409 si ya es Premium o si ya tiene una solicitud abierta. */
-  async solicitar(tiendaId: string): Promise<SolicitudPremium> {
+  /** El dueño pide un cambio de plan. Si no dice a cuál, es al otro. 409 si ya lo tiene o si ya pidió uno. */
+  async solicitar(tiendaId: string, planPedido?: unknown): Promise<SolicitudPremium> {
     const tienda = await this.registro.tienda(tiendaId);
     if (!tienda) throw new ErrorDeNegocio(404, `La tienda ${tiendaId} no existe`);
-    if (tienda.plan === 'Premium') throw new ErrorDeNegocio(409, 'Tu tienda ya tiene el plan Premium');
+    if (planPedido !== undefined && !PLANES.includes(planPedido as Plan)) {
+      throw new ErrorDeNegocio(400, 'El plan tiene que ser Estándar o Premium');
+    }
+    const plan = (planPedido as Plan | undefined) ?? (tienda.plan === 'Premium' ? 'Estándar' : 'Premium');
+    if (tienda.plan === plan) throw new ErrorDeNegocio(409, `Tu tienda ya tiene el plan ${plan}`);
     try {
-      return await this.registro.crearSolicitud(tiendaId);
+      return await this.registro.crearSolicitud(tiendaId, plan);
     } catch (error) {
       if ((error as { code?: string }).code === '23505') {
-        throw new ErrorDeNegocio(409, 'Ya pediste el plan Premium: tu solicitud está en trámite');
+        throw new ErrorDeNegocio(409, 'Ya pediste un cambio de plan: tu solicitud está en trámite');
       }
       throw error;
     }
@@ -53,15 +62,23 @@ export class Mudanzas {
     const solicitud = await this.pendiente(id);
     const tienda = await this.registro.tienda(solicitud.tiendaId);
     if (!tienda) throw new ErrorDeNegocio(404, `La tienda ${solicitud.tiendaId} ya no existe`);
-    if (tienda.plan === 'Premium') throw new ErrorDeNegocio(409, `La tienda ${tienda.id} ya es Premium`);
+    if (tienda.plan === solicitud.plan) throw new ErrorDeNegocio(409, `La tienda ${tienda.id} ya tiene el plan ${solicitud.plan}`);
     const origen = await this.registro.celda(tienda.celda);
     if (!origen) throw new Error(`La celda ${tienda.celda} no está en el registro`);
+    const aPremium = solicitud.plan === 'Premium';
+    const destino = aPremium ? nombreDeCelda(tienda.id) : (await this.registro.celdaPool()).nombre;
 
-    // La celda destino se anota desde el principio: si el servicio se cae a mitad de camino, al
-    // arrancar se sabe qué contenedores borrar.
+    // Origen y destino se anotan desde el principio: si el servicio se cae a mitad de camino, al
+    // arrancar se sabe qué terminar o qué deshacer.
     const enCurso = await this.registro.actualizarSolicitud(
       id,
-      { estado: 'en-curso', paso: 'creando-celda', celdaDestino: nombreDeCelda(tienda.id), error: null },
+      {
+        estado: 'en-curso',
+        paso: aPremium ? 'creando-celda' : 'frenando-escrituras',
+        celdaOrigen: origen.nombre,
+        celdaDestino: destino,
+        error: null,
+      },
       'pendiente',
     );
     if (!enCurso) throw new ErrorDeNegocio(409, 'La solicitud ya no está pendiente');
@@ -79,14 +96,14 @@ export class Mudanzas {
 
   /**
    * Al arrancar el servicio: las mudanzas que quedaron a medias. Si la tienda ya estaba en la celda
-   * nueva, la mudanza terminó (solo puede faltar limpiar la pool); si no, se deshace.
+   * destino, la mudanza terminó (solo puede faltar limpiar el origen); si no, se deshace.
    */
   async recuperar(): Promise<void> {
     for (const s of await this.registro.solicitudes('en-curso')) {
       const tienda = await this.registro.tienda(s.tiendaId);
       if (tienda && s.celdaDestino && tienda.celda === s.celdaDestino) {
-        const pool = await this.registro.celdaPool();
-        await borrarDatosDeTienda(pool.hostDb, tienda.id).catch((e) => console.error(`No se pudo limpiar la pool para ${tienda.id}`, e));
+        const origen = s.celdaOrigen ? await this.registro.celda(s.celdaOrigen) : null;
+        if (origen) await this.limpiarOrigen(origen, tienda.id).catch((e) => console.error(`No se pudo limpiar ${origen.nombre}`, e));
         await this.registro.actualizarSolicitud(s.id, { estado: 'completada', paso: null });
         console.log(`Mudanza ${s.id}: ya estaba hecha, queda completada`);
       } else {
@@ -105,13 +122,13 @@ export class Mudanzas {
   }
 
   private async mudar(solicitud: SolicitudPremium, origen: Celda): Promise<void> {
-    const { id, tiendaId } = solicitud;
+    const { id, tiendaId, plan } = solicitud;
     const paso = (p: PasoMudanza) => this.registro.actualizarSolicitud(id, { paso: p });
     let ruteoCambiado = false;
 
     try {
-      // 1. La celda nueva, con su base vacía y su app.
-      const destino = await this.aprovisionador.crearCelda(tiendaId);
+      // 1. A Premium, una celda nueva con su base vacía y su app. A Estándar, la pool que ya existe.
+      const destino = plan === 'Premium' ? await this.aprovisionador.crearCelda(tiendaId) : await this.celdaExistente(solicitud);
 
       // 2. Desde acá el gateway responde 503 a las escrituras. Se espera a que lo vea y a que
       //    terminen los pedidos que ya estaban adentro.
@@ -133,34 +150,58 @@ export class Mudanzas {
         }
       }
 
-      // 5. El cambio de ruteo es un solo UPDATE. Se espera a que el gateway lo vea antes de borrar el origen.
+      // 5. El cambio de ruteo es un solo UPDATE. Se espera a que el gateway lo vea antes de tocar el origen.
       await paso('cambiando-ruteo');
-      await this.registro.pasarAPremium(tiendaId, destino.nombre);
+      await this.registro.cambiarDeCelda(tiendaId, plan, destino.nombre);
       ruteoCambiado = true;
       await esperar(ESPERA_GATEWAY_MS);
 
-      // 6. Los datos viejos ya no los lee nadie.
-      await paso('limpiando-pool');
-      await borrarDatosDeTienda(origen.hostDb, tiendaId);
+      // 6. Los datos viejos ya no los lee nadie. Si el origen era una celda solo para esta tienda, se libera entera.
+      await paso(plan === 'Premium' ? 'limpiando-pool' : 'liberando-celda');
+      await this.limpiarOrigen(origen, tiendaId);
       await this.registro.actualizarSolicitud(id, { estado: 'completada', paso: null });
-      console.log(`Mudanza ${id}: la tienda ${tiendaId} ya vive en ${destino.nombre}`);
+      console.log(`Mudanza ${id}: la tienda ${tiendaId} ya vive en ${destino.nombre} (plan ${plan})`);
     } catch (error) {
       if (!ruteoCambiado) return this.deshacer(solicitud, error);
-      // La tienda ya está en su celda nueva y funciona: solo quedaron datos viejos en la pool.
-      console.error(`Mudanza ${id}: no se pudieron borrar los datos viejos de ${origen.nombre}`, error);
+      // La tienda ya está en su celda nueva y funciona: solo quedaron restos en el origen.
+      console.error(`Mudanza ${id}: no se pudo limpiar ${origen.nombre}`, error);
       await this.registro.actualizarSolicitud(id, {
         estado: 'completada',
         paso: null,
-        error: `La tienda se mudó, pero no se pudieron borrar sus datos de ${origen.nombre}: ${mensaje(error)}`,
+        error: `La tienda se mudó, pero no se pudo limpiar ${origen.nombre}: ${mensaje(error)}`,
       });
     }
   }
 
-  /** Vuelve todo a como estaba: la tienda activa en su celda, sin la celda nueva. */
+  private async celdaExistente(solicitud: SolicitudPremium): Promise<Celda> {
+    const celda = solicitud.celdaDestino ? await this.registro.celda(solicitud.celdaDestino) : null;
+    if (!celda) throw new Error(`La celda ${solicitud.celdaDestino} no está en el registro`);
+    return celda;
+  }
+
+  /** Una celda creada para la tienda se borra entera; de una compartida, solo se borran sus datos. */
+  private async limpiarOrigen(origen: Celda, tiendaId: string): Promise<void> {
+    if (origen.dinamica) await this.aprovisionador.borrarCelda(origen.nombre);
+    else await borrarDatosDeTienda(origen.hostDb, tiendaId);
+  }
+
+  /** Vuelve todo a como estaba: la tienda activa en su celda, sin nada suyo en el destino. */
   private async deshacer(solicitud: SolicitudPremium, error: unknown): Promise<void> {
     console.error(`Mudanza ${solicitud.id}: falló, se deshace`, error);
-    await this.registro.cambiarEstado(solicitud.tiendaId, 'activa').catch(console.error);
-    if (solicitud.celdaDestino) await this.aprovisionador.borrarCelda(solicitud.celdaDestino).catch(console.error);
+    const { tiendaId, celdaDestino } = solicitud;
+    await this.registro.cambiarEstado(tiendaId, 'activa').catch(console.error);
+
+    const tienda = await this.registro.tienda(tiendaId);
+    if (celdaDestino && tienda?.celda !== celdaDestino) {
+      if (solicitud.plan === 'Premium') {
+        // La celda nueva se creó para esta mudanza: se borra entera, haya llegado a crearse o no.
+        await this.aprovisionador.borrarCelda(celdaDestino).catch(console.error);
+      } else {
+        // La pool es compartida: solo se borra lo que se haya copiado de esta tienda.
+        const destino = await this.registro.celda(celdaDestino);
+        if (destino) await borrarDatosDeTienda(destino.hostDb, tiendaId).catch(console.error);
+      }
+    }
     await this.registro.actualizarSolicitud(solicitud.id, { estado: 'fallida', error: mensaje(error) });
   }
 }
@@ -175,9 +216,14 @@ function leerTodo(hostDb: string, tiendaId: string): Promise<Filas> {
   });
 }
 
-/** En orden de tablas, porque pedido_items depende de pedidos. Si falla una fila, no queda nada a medias. */
+/**
+ * En orden de tablas, porque pedido_items depende de pedidos. Antes se borra lo que la tienda tenga
+ * en el destino (por ejemplo, restos en la pool de un pase anterior que no se pudo limpiar). Si falla
+ * una fila, no queda nada a medias.
+ */
 function escribirTodo(hostDb: string, tiendaId: string, filas: Filas): Promise<void> {
   return conTiendaEnCelda(hostDb, tiendaId, async (c) => {
+    for (const tabla of [...TABLAS_DE_TIENDA].reverse()) await c.query(`DELETE FROM ${tabla}`);
     for (const tabla of TABLAS_DE_TIENDA) {
       for (const fila of filas[tabla]) {
         const columnas = Object.keys(fila);
