@@ -88,7 +88,7 @@ export default function MiTienda({ tienda }: ContextoPanel) {
             )}
           </ul>
           {plan.estado === 'error' && <AvisoError problema={plan.problema} onReintentar={recargarPlan} />}
-          {plan.estado === 'listo' && <PasarAPremium plan={plan.datos} recargar={recargarPlan} />}
+          {plan.estado === 'listo' && <CambioDePlan plan={plan.datos} recargar={recargarPlan} />}
         </section>
       </div>
     </>
@@ -98,12 +98,15 @@ export default function MiTienda({ tienda }: ContextoPanel) {
 /** Cada cuánto se consulta el estado mientras la solicitud está abierta. */
 const CONSULTA_MS = 3000;
 
-/** El pase a Premium, en lenguaje de negocio: el dueño no ve cómo se hace, solo en qué anda. */
-function PasarAPremium({ plan, recargar }: { plan: PlanTienda; recargar: () => void }) {
+/** Pasar a Premium o volver a Estándar, en lenguaje de negocio: el dueño no ve cómo se hace, solo en qué anda. */
+function CambioDePlan({ plan, recargar }: { plan: PlanTienda; recargar: () => void }) {
   const toast = useToast();
   const [enviando, setEnviando] = useState(false);
-  const estado = plan.solicitud?.estado;
+  const [confirmando, setConfirmando] = useState(false);
+  const solicitud = plan.solicitud;
+  const estado = solicitud?.estado;
   const abierta = estado === 'pendiente' || estado === 'en-curso';
+  const aPremium = solicitud?.plan === 'Premium';
 
   // Mientras la solicitud está abierta se consulta seguido, para enterarse de la aprobación y del final.
   useEffect(() => {
@@ -112,20 +115,25 @@ function PasarAPremium({ plan, recargar }: { plan: PlanTienda; recargar: () => v
     return () => window.clearInterval(intervalo);
   }, [abierta, recargar]);
 
-  // Si el pase termina con la página abierta, se avisa.
+  // Si el cambio termina con la página abierta, se avisa.
   const anterior = useRef(estado);
   useEffect(() => {
     if (anterior.current === 'en-curso' && estado === 'completada') {
-      toast({ tipo: 'exito', titulo: '¡Tu tienda ya es Premium!', detalle: 'Ya tenés infraestructura dedicada.' });
+      toast(
+        aPremium
+          ? { tipo: 'exito', titulo: '¡Tu tienda ya es Premium!', detalle: 'Ya tenés infraestructura dedicada.' }
+          : { tipo: 'exito', titulo: 'Tu tienda volvió al plan Estándar', detalle: 'Sigue online con todos sus productos y pedidos.' },
+      );
     }
     anterior.current = estado;
-  }, [estado, toast]);
+  }, [estado, aPremium, toast]);
 
-  async function pedir() {
+  async function pedir(accion: () => Promise<unknown>) {
     setEnviando(true);
     try {
-      await tiendaActual.pedirPremium();
+      await accion();
       toast({ tipo: 'exito', titulo: 'Solicitud enviada', detalle: 'Te avisamos acá cuando esté aprobada.' });
+      setConfirmando(false);
       recargar();
     } catch (error) {
       toast({ tipo: 'error', titulo: 'No se pudo enviar la solicitud', detalle: aProblema(error).detail });
@@ -134,39 +142,74 @@ function PasarAPremium({ plan, recargar }: { plan: PlanTienda; recargar: () => v
     }
   }
 
-  if (plan.plan === 'Premium') return null;
-
   if (estado === 'pendiente') {
     return (
       <Aviso titulo="Solicitud pendiente de aprobación">
-        Recibimos tu pedido para pasar a Premium. Lo estamos revisando: apenas lo aprobemos, empezamos a preparar tu tienda.
+        {aPremium
+          ? 'Recibimos tu pedido para pasar a Premium. Lo estamos revisando: apenas lo aprobemos, empezamos a preparar tu tienda.'
+          : 'Recibimos tu pedido para volver al plan Estándar. Lo estamos revisando: mientras tanto seguís con Premium.'}
       </Aviso>
     );
   }
 
   if (estado === 'en-curso') {
     return (
-      <Aviso titulo="Estamos preparando tu tienda Premium">
+      <Aviso titulo={aPremium ? 'Estamos preparando tu tienda Premium' : 'Estamos pasando tu tienda al plan Estándar'}>
         Tarda unos minutos. Tu tienda sigue online; durante un momento no vas a poder cargar cambios ni recibir pedidos nuevos.
       </Aviso>
     );
   }
 
-  return (
+  // Una solicitud rechazada o fallida solo importa si pedía cambiar al plan que todavía no tiene.
+  const pendienteDeCambio = solicitud && solicitud.plan !== plan.plan;
+  const avisos = pendienteDeCambio && (
     <>
       {estado === 'rechazada' && (
-        <Aviso titulo="Tu última solicitud no fue aprobada">Si querés, podés volver a pedir el plan Premium.</Aviso>
+        <Aviso titulo="Tu última solicitud no fue aprobada">Si querés, podés volver a pedir el cambio de plan.</Aviso>
       )}
       {estado === 'fallida' && (
-        <Aviso titulo="No pudimos completar el pase a Premium">
-          Tu tienda sigue funcionando con el plan Estándar, sin cambios. Podés volver a pedirlo.
+        <Aviso titulo={aPremium ? 'No pudimos completar el pase a Premium' : 'No pudimos completar el cambio al plan Estándar'}>
+          {`Tu tienda sigue funcionando con el plan ${plan.plan}, sin cambios. Podés volver a pedirlo.`}
         </Aviso>
       )}
-      <p className="texto-suave">¿Tu tienda crece? Con el plan Premium tenés infraestructura dedicada.</p>
-      <button type="button" className="boton" onClick={pedir} disabled={enviando}>
-        <Icono nombre="corona" medida={16} />
-        {enviando ? 'Enviando…' : 'Pasar a Premium'}
-      </button>
+    </>
+  );
+
+  if (plan.plan === 'Estándar') {
+    return (
+      <>
+        {avisos}
+        <p className="texto-suave">¿Tu tienda crece? Con el plan Premium tenés infraestructura dedicada.</p>
+        <button type="button" className="boton" onClick={() => pedir(tiendaActual.pedirPremium)} disabled={enviando}>
+          <Icono nombre="corona" medida={16} />
+          {enviando ? 'Enviando…' : 'Pasar a Premium'}
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {avisos}
+      {confirmando ? (
+        <div className="confirmacion-plan">
+          <p className="texto-suave">
+            Tu tienda deja de tener infraestructura dedicada y pasa a la compartida. Tus productos y pedidos se mantienen. ¿Querés pedirlo?
+          </p>
+          <span className="confirmacion-fila">
+            <button type="button" className="boton boton-secundario boton-chico" onClick={() => pedir(tiendaActual.volverAEstandar)} disabled={enviando}>
+              {enviando ? 'Enviando…' : 'Sí, volver a Estándar'}
+            </button>
+            <button type="button" className="boton boton-fantasma boton-chico" onClick={() => setConfirmando(false)} disabled={enviando}>
+              No
+            </button>
+          </span>
+        </div>
+      ) : (
+        <button type="button" className="boton boton-fantasma boton-chico" onClick={() => setConfirmando(true)}>
+          Volver al plan Estándar
+        </button>
+      )}
     </>
   );
 }

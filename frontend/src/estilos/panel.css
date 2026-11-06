@@ -708,3 +708,14 @@
 .tarjeta-plan .aviso {
   margin-bottom: 1rem;
 }
+
+.confirmacion-plan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.confirmacion-plan p {
+  margin: 0;
+}

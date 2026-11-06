@@ -168,23 +168,30 @@ export const tiendaActual = {
       }),
     ),
   pedidos: async () => (await pedir<PedidoCrudo[]>('/v1/pedidos')).map(aPedido),
-  /** El plan de la tienda y la última solicitud de pase a Premium. Solo para su dueño. */
+  /** El plan de la tienda y la última solicitud de cambio de plan. Solo para su dueño. */
   plan: () => pedir<PlanTienda>('/v1/plan'),
-  pedirPremium: () => pedir<SolicitudPremium>('/v1/plan/solicitud', { method: 'POST' }),
+  pedirPremium: () => pedirPlan('Premium'),
+  volverAEstandar: () => pedirPlan('Estándar'),
 };
+
+const pedirPlan = (plan: Plan) =>
+  pedir<SolicitudPremium>('/v1/plan/solicitud', { method: 'POST', body: JSON.stringify({ plan }) });
+
+export type Plan = 'Estándar' | 'Premium';
 
 export type EstadoSolicitud = 'pendiente' | 'en-curso' | 'completada' | 'fallida' | 'rechazada';
 
-/** Una solicitud de pase a Premium, tal como la ve el dueño: solo su estado. */
+/** Una solicitud de cambio de plan, tal como la ve el dueño: a qué plan pidió pasar y su estado. */
 export interface SolicitudPremium {
   id: string;
+  plan: Plan;
   estado: EstadoSolicitud;
   creadaEn: string;
   actualizadaEn: string;
 }
 
 export interface PlanTienda {
-  plan: 'Estándar' | 'Premium';
+  plan: Plan;
   solicitud: SolicitudPremium | null;
 }
 
@@ -234,21 +241,25 @@ export interface TiendaCreada {
   duenio: { usuario: string; clave: string };
 }
 
-/** Pasos de la mudanza a Premium, en orden (ADR-012). */
+/** Pasos de una mudanza (ADR-012). La vuelta a Estándar no crea celda y termina liberando la Premium. */
 export type PasoMudanza =
   | 'creando-celda'
   | 'frenando-escrituras'
   | 'copiando-datos'
   | 'verificando'
   | 'cambiando-ruteo'
-  | 'limpiando-pool';
+  | 'limpiando-pool'
+  | 'liberando-celda';
 
-/** Una solicitud de pase a Premium, tal como la ve el administrador: con el paso de la mudanza. */
+/** Una solicitud de cambio de plan, tal como la ve el administrador: con el paso de la mudanza. */
 export interface SolicitudAdmin {
   id: string;
   tiendaId: string;
+  /** El plan al que pidió pasar. */
+  plan: Plan;
   estado: EstadoSolicitud;
   paso: PasoMudanza | null;
+  celdaOrigen: string | null;
   celdaDestino: string | null;
   error: string | null;
   creadaEn: string;
