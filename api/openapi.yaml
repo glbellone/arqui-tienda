@@ -24,7 +24,7 @@ tags:
       de Analítica (ADR-006); las tiendas y las solicitudes, el servicio de Tiendas e Inquilinos (ADR-012).
   - name: Plan
     description: |
-      Plan de la tienda y pase a Premium, para su dueño. Lo atiende el servicio de Tiendas e Inquilinos
+      Plan de la tienda y cambios de plan (pasar a Premium o volver a Estándar), para su dueño. Lo atiende el servicio de Tiendas e Inquilinos
       (ADR-012), no la celda. Desde el subdominio de la tienda, /v1/plan y /v1/plan/solicitud.
   - name: Tiendas
     description: Datos públicos de las tiendas de la plataforma.
@@ -125,7 +125,7 @@ paths:
     get:
       tags: [Administración]
       operationId: listarSolicitudesPremium
-      summary: Solicitudes de pase a Premium
+      summary: Solicitudes de cambio de plan
       description: Requiere el rol admin. De la más reciente a la más antigua, con el paso de la mudanza en curso.
       security:
         - oidc: []
@@ -145,11 +145,13 @@ paths:
     post:
       tags: [Administración]
       operationId: aprobarSolicitudPremium
-      summary: Aprobar un pase a Premium
+      summary: Aprobar un cambio de plan
       description: |
-        Requiere el rol admin. Responde enseguida y la mudanza sigue en segundo plano: se crea una celda
-        nueva para la tienda, se frenan sus escrituras, se copian y verifican sus datos y se cambia el
-        ruteo. El avance se sigue en GET /v1/admin/solicitudes (campo `paso`).
+        Requiere el rol admin. Responde enseguida y la mudanza sigue en segundo plano. A Premium: se crea
+        una celda nueva para la tienda, se frenan sus escrituras, se copian y verifican sus datos, se
+        cambia el ruteo y se limpian sus datos de la pool. A Estándar: lo mismo hacia la pool, sin crear
+        nada, y al final se libera la celda Premium (si se había creado para la tienda, se borra). El
+        avance se sigue en GET /v1/admin/solicitudes (campo `paso`).
       security:
         - oidc: []
       responses:
@@ -168,7 +170,7 @@ paths:
     post:
       tags: [Administración]
       operationId: rechazarSolicitudPremium
-      summary: Rechazar un pase a Premium
+      summary: Rechazar un cambio de plan
       description: Requiere el rol admin. Solo se pueden rechazar las solicitudes pendientes.
       security:
         - oidc: []
@@ -403,7 +405,7 @@ paths:
     get:
       tags: [Plan]
       operationId: obtenerPlan
-      summary: Plan de la tienda y la última solicitud de pase a Premium
+      summary: Plan de la tienda y la última solicitud de cambio de plan
       description: Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL.
       security:
         - oidc: []
@@ -422,13 +424,22 @@ paths:
     post:
       tags: [Plan]
       operationId: pedirPremium
-      summary: Pedir el pase a Premium
+      summary: Pedir un cambio de plan
       description: |
-        Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL. La
-        solicitud queda pendiente hasta que la apruebe el administrador. 409 si la tienda ya es Premium
-        o si ya tiene una solicitud abierta.
+        Requiere rol duenio y que el claim tienda_id del token coincida con la tienda de la URL. Sin
+        cuerpo, se pide el otro plan (Premium si es Estándar, Estándar si es Premium). La solicitud
+        queda pendiente hasta que la apruebe el administrador. 409 si la tienda ya tiene ese plan o si
+        ya tiene una solicitud abierta.
       security:
         - oidc: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan: { type: string, enum: [Estándar, Premium], description: El plan al que quiere pasar }
       responses:
         '201':
           description: Solicitud creada
@@ -605,6 +616,7 @@ components:
       description: La solicitud tal como la ve el dueño. Los detalles de la mudanza no se muestran.
       properties:
         id: { type: string, format: uuid }
+        plan: { type: string, enum: [Estándar, Premium], description: El plan al que pidió pasar }
         estado: { $ref: '#/components/schemas/EstadoSolicitud' }
         creadaEn: { type: string, format: date-time }
         actualizadaEn: { type: string, format: date-time }
@@ -615,19 +627,21 @@ components:
         solicitud:
           allOf: [{ $ref: '#/components/schemas/SolicitudPremium' }]
           nullable: true
-          description: La última solicitud de pase a Premium, o null si nunca pidió
+          description: La última solicitud de cambio de plan, o null si nunca pidió
     SolicitudAdmin:
       type: object
       description: La solicitud tal como la ve el administrador, con el avance de la mudanza.
       properties:
         id: { type: string, format: uuid }
         tiendaId: { type: string, example: t100 }
+        plan: { type: string, enum: [Estándar, Premium], description: El plan al que pidió pasar }
         estado: { $ref: '#/components/schemas/EstadoSolicitud' }
         paso:
           type: string
           nullable: true
-          enum: [creando-celda, frenando-escrituras, copiando-datos, verificando, cambiando-ruteo, limpiando-pool]
+          enum: [creando-celda, frenando-escrituras, copiando-datos, verificando, cambiando-ruteo, limpiando-pool, liberando-celda]
           description: Paso de la mudanza en curso
+        celdaOrigen: { type: string, nullable: true, example: pool }
         celdaDestino: { type: string, nullable: true, example: premium-t100 }
         error: { type: string, nullable: true, description: Por qué falló la mudanza }
         creadaEn: { type: string, format: date-time }
