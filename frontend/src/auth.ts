@@ -18,26 +18,32 @@ export interface Sesion {
 }
 
 /**
- * La sesión se guarda en sessionStorage para que sobreviva a un F5. Es por origen:
- * cada tienda (cada subdominio) tiene la suya. Si el usuario ya ingresó en otra tienda,
- * Keycloak lo reconoce por su cookie y no le vuelve a pedir la contraseña.
+ * La sesión se guarda en localStorage: sobrevive a un F5 y la comparten todas las pestañas del mismo
+ * sitio. Es por origen: cada tienda (cada subdominio) tiene la suya. Si el usuario ya ingresó en otro
+ * sitio, Keycloak lo reconoce por su cookie y no le vuelve a pedir la contraseña.
  */
 const CLAVE = 'tiendas.sesion';
 
+/** Marca, por pestaña, que ya se intentó recuperar la sesión de Keycloak sin pedir la contraseña. */
+const INTENTO_SILENCIOSO = 'tiendas.ingreso-silencioso';
+
+/** Cuánto se espera a Keycloak antes de mostrar la página sin sesión. */
+export const ESPERA_KEYCLOAK_MS = 8000;
+
 function guardar() {
   try {
-    sessionStorage.setItem(
+    localStorage.setItem(
       CLAVE,
       JSON.stringify({ token: keycloak.token, refreshToken: keycloak.refreshToken, idToken: keycloak.idToken }),
     );
   } catch {
-    // Sin sessionStorage la sesión dura hasta recargar la página.
+    // Sin localStorage la sesión dura hasta recargar la página.
   }
 }
 
 function olvidar() {
   try {
-    sessionStorage.removeItem(CLAVE);
+    localStorage.removeItem(CLAVE);
   } catch {
     // Nada que borrar.
   }
@@ -45,29 +51,77 @@ function olvidar() {
 
 function sesionGuardada(): { token: string; refreshToken: string; idToken?: string } | undefined {
   try {
-    return JSON.parse(sessionStorage.getItem(CLAVE) ?? 'null') ?? undefined;
+    return JSON.parse(localStorage.getItem(CLAVE) ?? 'null') ?? undefined;
   } catch {
     return undefined;
   }
 }
 
 /**
- * Se llama una sola vez, antes de renderizar. Para un visitante anónimo no hace ningún pedido
- * a Keycloak: la vitrina no depende de que Keycloak esté disponible.
+ * Se llama una sola vez, antes de dibujar. Para un visitante anónimo no hace ningún pedido a Keycloak:
+ * la vitrina no depende de que Keycloak esté disponible.
+ *
+ * Termina cuando Keycloak responde o, si tarda más de ESPERA_KEYCLOAK_MS, antes: la página se muestra
+ * sin sesión y, si Keycloak responde después con el usuario, se avisa con `alIngresarTarde` para
+ * volver a dibujarla.
  */
-export async function iniciarAuth(): Promise<boolean> {
+export async function iniciarAuth(alIngresarTarde: () => void): Promise<void> {
   keycloak.onAuthSuccess = guardar;
   keycloak.onAuthRefreshSuccess = guardar;
+
+  let tarde = false;
+  let reloj: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<void>((listo) => {
+    reloj = setTimeout(() => {
+      tarde = true;
+      // Mientras tanto se navega sin token: los pedidos a la API no se quedan esperando a Keycloak.
+      keycloak.clearToken();
+      listo();
+    }, ESPERA_KEYCLOAK_MS);
+  });
+
+  const inicio = keycloak
+    .init({ pkceMethod: 'S256', checkLoginIframe: false, ...sesionGuardada() })
+    .then((autenticado) => {
+      if (!autenticado) olvidar();
+      else if (tarde) alIngresarTarde();
+    })
+    .catch((error) => {
+      // Sesión guardada vencida o Keycloak caído: se sigue sin sesión.
+      console.error('No se pudo recuperar la sesión', error);
+      olvidar();
+      keycloak.clearToken();
+    })
+    .finally(() => clearTimeout(reloj));
+
+  await Promise.race([inicio, limite]);
+}
+
+/**
+ * Si en otra pestaña del mismo sitio el usuario ingresa o sale, esta pestaña se recarga para mostrar
+ * lo mismo. Las renovaciones del token no cuentan: solo pasar de "sin sesión" a "con sesión" o al revés.
+ */
+export function escucharOtrasPestanas() {
+  window.addEventListener('storage', (evento) => {
+    if (evento.key === CLAVE && (evento.oldValue === null) !== (evento.newValue === null)) window.location.reload();
+  });
+}
+
+/**
+ * Si el usuario ya ingresó en otro sitio (por ejemplo, en la portada de la plataforma), Keycloak lo
+ * reconoce por su cookie: se lo lleva y se lo trae de vuelta ya ingresado, sin pedirle la contraseña.
+ * Se intenta una sola vez por pestaña; si no tenía sesión, vuelve igual que antes y no se repite.
+ * Devuelve true si salió a intentarlo.
+ */
+export function intentarIngresoSilencioso(volverA: string): boolean {
   try {
-    const autenticado = await keycloak.init({ pkceMethod: 'S256', checkLoginIframe: false, ...sesionGuardada() });
-    if (!autenticado) olvidar();
-    return autenticado;
-  } catch (error) {
-    // Sesión guardada vencida o Keycloak caído: se sigue sin sesión.
-    olvidar();
-    keycloak.clearToken();
-    throw error;
+    if (sessionStorage.getItem(INTENTO_SILENCIOSO)) return false;
+    sessionStorage.setItem(INTENTO_SILENCIOSO, '1');
+  } catch {
+    return false;
   }
+  void keycloak.login({ prompt: 'none', redirectUri: new URL(volverA, window.location.origin).href });
+  return true;
 }
 
 export function sesionActual(): Sesion | null {

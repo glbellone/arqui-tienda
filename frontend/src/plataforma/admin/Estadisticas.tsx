@@ -1,64 +1,23 @@
-import { buscarTienda, estadisticas, type EstadisticaTienda } from '../api';
-import { ingresar, salir, type Sesion } from '../auth';
-import AvisoError from '../componentes/AvisoError';
-import { Esqueleto } from '../componentes/Esqueleto';
-import EstadoVacio from '../componentes/EstadoVacio';
-import Icono, { type NombreIcono } from '../componentes/Icono';
-import { formatearMonto, plural } from '../formato';
-import { useCarga } from '../hooks/useCarga';
-import { useTitulo } from '../hooks/useTitulo';
-import { NOMBRE_PLATAFORMA } from './marca';
+import { admin, buscarTienda, type EstadisticaTienda } from '../../api';
+import AvisoError from '../../componentes/AvisoError';
+import { Esqueleto } from '../../componentes/Esqueleto';
+import EstadoVacio from '../../componentes/EstadoVacio';
+import Icono, { type NombreIcono } from '../../componentes/Icono';
+import { formatearMonto, plural } from '../../formato';
+import { useCarga } from '../../hooks/useCarga';
+import { useTitulo } from '../../hooks/useTitulo';
+import EncabezadoPagina from '../../panel/Encabezado';
+import { NOMBRE_PLATAFORMA } from '../marca';
 
 type FilaEstadistica = EstadisticaTienda & { nombre: string };
 
 const fecha = new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' });
 
-/** Estadísticas de toda la plataforma, solo para el administrador (ADR-006). */
-export default function Estadisticas({ sesion }: { sesion: Sesion | null }) {
+/** Estadísticas de toda la plataforma (ADR-006). */
+export default function Estadisticas() {
   useTitulo(`Estadísticas · ${NOMBRE_PLATAFORMA}`);
-
-  if (!sesion) {
-    return (
-      <main className="plataforma-acceso">
-        <div className="tarjeta tarjeta-acceso">
-          <span className="estado-vacio-icono">
-            <Icono nombre="grafico" medida={28} />
-          </span>
-          <h1>Estadísticas de la plataforma</h1>
-          <p>Ingresá con una cuenta de administrador para verlas.</p>
-          <button type="button" className="boton boton-grande boton-bloque" onClick={() => ingresar('/admin/estadisticas')}>
-            Ingresar
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  if (!sesion.roles.includes('admin')) {
-    return (
-      <main className="plataforma-acceso">
-        <div className="tarjeta tarjeta-acceso">
-          <span className="estado-vacio-icono">
-            <Icono nombre="candado" medida={28} />
-          </span>
-          <h1>No tenés acceso a las estadísticas</h1>
-          <p>
-            Ingresaste como <strong>{sesion.usuario}</strong>, que no es administrador de la plataforma.
-          </p>
-          <button type="button" className="boton boton-grande boton-bloque" onClick={() => salir('/admin/estadisticas')}>
-            Ingresar con otra cuenta
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  return <Tablero />;
-}
-
-function Tablero() {
   const [carga, recargar] = useCarga<FilaEstadistica[]>(async () => {
-    const filas = await estadisticas();
+    const filas = await admin.estadisticas();
     // Analítica solo conoce el id de cada tienda: el nombre sale de su perfil público.
     const nombres = await Promise.all(
       filas.map((f) =>
@@ -76,20 +35,16 @@ function Tablero() {
   const ventas = filas.reduce((total, f) => total + f.ventasCentavos, 0);
 
   return (
-    <main className="plataforma-contenido">
-      <div className="encabezado-pagina">
-        <div className="encabezado-pagina-fila">
-          <div>
-            <h1>Estadísticas de la plataforma</h1>
-            <p>Totales por tienda, armados con los eventos que publica cada tienda. Pueden tardar unos segundos en actualizarse.</p>
-          </div>
-          <div className="encabezado-pagina-acciones">
-            <button type="button" className="boton boton-secundario" onClick={recargar}>
-              Actualizar
-            </button>
-          </div>
-        </div>
-      </div>
+    <>
+      <EncabezadoPagina
+        titulo="Estadísticas"
+        descripcion="Totales por tienda, armados con los eventos que publica cada tienda. Pueden tardar unos segundos en actualizarse."
+        acciones={
+          <button type="button" className="boton boton-secundario" onClick={recargar}>
+            Actualizar
+          </button>
+        }
+      />
 
       {carga.estado === 'error' && <AvisoError problema={carga.problema} onReintentar={recargar} />}
 
@@ -156,7 +111,7 @@ function Tablero() {
           </table>
         </div>
       )}
-    </main>
+    </>
   );
 }
 

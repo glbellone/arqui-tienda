@@ -4,7 +4,7 @@ import { buscarTienda } from '../api';
 import { ingresar, salir, sesionActual, type Sesion } from '../auth';
 import Icono, { type NombreIcono } from '../componentes/Icono';
 import { useTitulo } from '../hooks/useTitulo';
-import Estadisticas from './Estadisticas';
+import Administracion from './admin/Administracion';
 import { NOMBRE_PLATAFORMA } from './marca';
 
 const BENEFICIOS: { icono: NombreIcono; titulo: string; texto: string }[] = [
@@ -25,22 +25,36 @@ const BENEFICIOS: { icono: NombreIcono; titulo: string; texto: string }[] = [
   },
 ];
 
-/** Sitio de la plataforma (sin subdominio): la presentación para emprendedores y las estadísticas del admin. */
+/** Sitio de la plataforma (sin subdominio): la presentación para emprendedores y la administración, en /admin. */
 export default function Plataforma() {
   const sesion = useMemo(() => sesionActual(), []);
 
   return (
-    <div className="sitio-plataforma">
-      <BarraPlataforma sesion={sesion} />
-      <Routes>
-        <Route path="/" element={<Presentacion sesion={sesion} />} />
-        <Route path="/admin/estadisticas" element={<Estadisticas sesion={sesion} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <footer className="plataforma-pie">
-        © {new Date().getFullYear()} {NOMBRE_PLATAFORMA}
-      </footer>
-    </div>
+    <Routes>
+      <Route
+        path="/admin/*"
+        element={
+          <div className="sitio-plataforma sitio-admin">
+            <Administracion sesion={sesion} />
+          </div>
+        }
+      />
+      <Route
+        path="*"
+        element={
+          <div className="sitio-plataforma">
+            <BarraPlataforma sesion={sesion} />
+            <Routes>
+              <Route path="/" element={<Presentacion sesion={sesion} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <footer className="plataforma-pie">
+              © {new Date().getFullYear()} {NOMBRE_PLATAFORMA}
+            </footer>
+          </div>
+        }
+      />
+    </Routes>
   );
 }
 
@@ -55,9 +69,9 @@ function BarraPlataforma({ sesion }: { sesion: Sesion | null }) {
       </Link>
       <div className="plataforma-sesion">
         {esAdmin && (
-          <NavLink to="/admin/estadisticas" className="plataforma-enlace">
+          <NavLink to="/admin" className="plataforma-enlace">
             <Icono nombre="grafico" medida={18} />
-            Estadísticas
+            Administración
           </NavLink>
         )}
         {sesion ? (
@@ -95,7 +109,7 @@ function Presentacion({ sesion }: { sesion: Sesion | null }) {
       <section className="plataforma-portada">
         <p className="plataforma-antetitulo">Para emprendedores</p>
         <h1>Tu tienda online, con tu propia dirección</h1>
-        <p className="plataforma-bajada">Cargá tus productos, compartí tu enlace y vendé. Tus clientes ven solo tu tienda.</p>
+        <p className="plataforma-bajada">Cargá tus productos, compartí tu enlace y vendé.</p>
         {urlPanel ? (
           <a href={urlPanel} className="boton boton-grande">
             Ir al panel de mi tienda

@@ -52,12 +52,15 @@ Vamos a publicar cada tienda en su propio subdominio: `{subdominio}.plataforma.c
   separados entre tiendas. Es aislamiento también del lado del cliente.
 - Sumar una tienda no requiere cambios de infraestructura: alcanza con un DNS comodín
   (`*.plataforma.com`) y un certificado comodín. En local, los navegadores resuelven `*.localhost` solos.
-- El gateway responde los datos públicos de la tienda (`GET /v1/tiendas/{id}`) con su registro.
-  Es una simplificación del TP hasta que exista el módulo Tiendas e Inquilinos.
+- El gateway responde los datos públicos de la tienda (`GET /v1/tiendas/{id}`) con su copia del
+  registro, que le provee el servicio de Tiendas e Inquilinos (ADR-012). Así el perfil público no
+  depende de que ese servicio esté arriba, y se actualiza solo (por ejemplo, el plan después de pasar a Premium).
+- El alta de una tienda (ADR-012) registra su subdominio como destino de login en Keycloak con la
+  API de administración; la baja lo saca.
 - Cambiar el subdominio de una tienda rompe los enlaces viejos.
 - Como se ingresa desde cada tienda, cada subdominio tiene que estar registrado como destino de
-  login en el cliente OIDC de Keycloak. En el TP están las tres tiendas de prueba; en producción,
-  dar de alta una tienda incluye registrarlo con la API de administración de Keycloak.
+  login en el cliente OIDC de Keycloak. Las tres tiendas de prueba vienen en el realm; las nuevas las
+  registra el alta (ver arriba).
 - La sesión del navegador es por tienda (cada subdominio es un origen). Si el usuario ya ingresó
   en otra tienda, Keycloak lo reconoce por su cookie y no le vuelve a pedir la contraseña.
 

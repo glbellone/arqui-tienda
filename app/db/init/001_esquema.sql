@@ -50,6 +50,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON productos    TO app_user;
 GRANT SELECT, INSERT, UPDATE         ON pedidos      TO app_user;
 GRANT SELECT, INSERT                 ON pedido_items TO app_user;
 
+-- ADR-012: lo usa el servicio de Tiendas para mudar o borrar los datos de una tienda. También pasa por
+-- row-level security: fija la tienda activa y solo ve y toca las filas de esa tienda.
+CREATE ROLE migrador LOGIN PASSWORD 'migrador_pass';
+GRANT SELECT, INSERT, DELETE ON productos, pedidos, pedido_items TO migrador;
+
 -- ADR-003: la base filtra por la tienda activa de la sesión, aunque el código se olvide del filtro.
 ALTER TABLE productos    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE productos    FORCE  ROW LEVEL SECURITY;

@@ -41,18 +41,56 @@ services:
     ports:
       - "8000:8000"
     environment:
-      CELDAS_URLS: '{"pool": "http://app-pool:3000", "premium-a": "http://app-premium-a:3000"}'
+      # El registro de tiendas y celdas lo provee el servicio de Tiendas (ADR-012).
+      TIENDAS_URL: http://tiendas:3000
       # ADR-011: cada tienda se publica en {subdominio}.{DOMINIO_BASE}.
       DOMINIO_BASE: localhost
       URL_PUBLICA_TIENDA: http://{subdominio}.localhost:5173
       OIDC_ISSUER: http://localhost:8080/realms/tiendas
       OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
-      # Las rutas /v1/admin/ van al servicio de Analítica (ADR-006).
+      # /v1/admin/estadisticas va a Analítica (ADR-006); el resto de /v1/admin/, a Tiendas (ADR-012).
       ANALITICA_URL: http://analitica:3000
     depends_on:
+      - tiendas
       - app-pool
       - app-premium-a
       - analitica
+
+  # --- Tiendas e Inquilinos (ADR-012): el registro de tiendas y celdas, con su propia base ---
+  tiendas:
+    build: ./tiendas
+    restart: unless-stopped
+    environment:
+      DB_URL: postgres://postgres:postgres@db-tiendas:5432/registro
+      OIDC_ISSUER: http://localhost:8080/realms/tiendas
+      OIDC_JWKS_URL: http://keycloak:8080/realms/tiendas/protocol/openid-connect/certs
+      # Para dar de alta al dueño de cada tienda nueva y habilitar el login desde su subdominio.
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USUARIO: admin
+      KEYCLOAK_ADMIN_CLAVE: admin
+      URL_PUBLICA_TIENDA: http://{subdominio}.localhost:5173
+      # Usuario de las bases de celda para mudar o borrar los datos de una tienda (pasa por RLS).
+      MIGRADOR_CLAVE: migrador_pass
+    volumes:
+      # Para crear las celdas Premium con la API de Docker (ADR-012). Ojo: da acceso total al Docker del host.
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db-tiendas:
+        condition: service_healthy
+
+  db-tiendas:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: registro
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./tiendas/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d registro"]
+      interval: 5s
+      retries: 10
 
   # --- Celda pool: tiendas estándar, base compartida con row-level security ---
   app-pool:

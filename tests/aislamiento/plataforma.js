@@ -65,14 +65,23 @@ export function comprar(host, items, clave = randomUUID(), datos = { comprador: 
   return pedir({ metodo: 'POST', ruta: '/v1/pedidos', host, cuerpo: { items, ...datos }, headers: { 'Idempotency-Key': clave } });
 }
 
-export async function login(usuario, clave) {
-  const res = await llamar(`${KEYCLOAK}/realms/tiendas/protocol/openid-connect/token`, {
+function pedirToken(usuario, clave) {
+  return llamar(`${KEYCLOAK}/realms/tiendas/protocol/openid-connect/token`, {
     metodo: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     cuerpo: new URLSearchParams({ grant_type: 'password', client_id: 'tiendas-web', username: usuario, password: clave }).toString(),
   });
+}
+
+export async function login(usuario, clave) {
+  const res = await pedirToken(usuario, clave);
   assert.equal(res.status, 200, `No se pudo loguear ${usuario}: ${JSON.stringify(res.json)}`);
   return res.json.access_token;
+}
+
+/** ¿Keycloak acepta ese usuario y contraseña? */
+export async function puedeIngresar(usuario, clave) {
+  return (await pedirToken(usuario, clave)).status === 200;
 }
 
 const ESPERA_MAXIMA_MS = 3 * 60 * 1000;
@@ -87,7 +96,7 @@ async function responde(consulta, estado = 200) {
 }
 
 /**
- * Espera a que Keycloak tenga el realm importado y a que el gateway llegue a las dos celdas y a Analítica.
+ * Espera a que Keycloak tenga el realm importado y a que el gateway llegue a las celdas, a Analítica y a Tiendas.
  * Recién levantados, los contenedores tardan unos segundos (Keycloak, bastante más).
  */
 export async function esperarPlataforma() {
@@ -95,6 +104,8 @@ export async function esperarPlataforma() {
     'Keycloak': () => responde(() => llamar(`${KEYCLOAK}/realms/tiendas`)),
     'celda pool': () => responde(() => pedir({ ruta: '/v1/tiendas/t1/productos' })),
     'celda premium-a': () => responde(() => pedir({ ruta: '/v1/tiendas/p1/productos' })),
+    // Sin token, el servicio de Tiendas responde 401: alcanza para saber que está levantado.
+    'Tiendas': () => responde(() => pedir({ ruta: '/v1/admin/tiendas' }), 401),
     // Sin token, Analítica responde 401: alcanza para saber que está levantada.
     'Analítica': () => responde(() => pedir({ ruta: '/v1/admin/estadisticas' }), 401),
   };

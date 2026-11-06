@@ -168,7 +168,32 @@ export const tiendaActual = {
       }),
     ),
   pedidos: async () => (await pedir<PedidoCrudo[]>('/v1/pedidos')).map(aPedido),
+  /** El plan de la tienda y la última solicitud de cambio de plan. Solo para su dueño. */
+  plan: () => pedir<PlanTienda>('/v1/plan'),
+  pedirPremium: () => pedirPlan('Premium'),
+  volverAEstandar: () => pedirPlan('Estándar'),
 };
+
+const pedirPlan = (plan: Plan) =>
+  pedir<SolicitudPremium>('/v1/plan/solicitud', { method: 'POST', body: JSON.stringify({ plan }) });
+
+export type Plan = 'Estándar' | 'Premium';
+
+export type EstadoSolicitud = 'pendiente' | 'en-curso' | 'completada' | 'fallida' | 'rechazada';
+
+/** Una solicitud de cambio de plan, tal como la ve el dueño: a qué plan pidió pasar y su estado. */
+export interface SolicitudPremium {
+  id: string;
+  plan: Plan;
+  estado: EstadoSolicitud;
+  creadaEn: string;
+  actualizadaEn: string;
+}
+
+export interface PlanTienda {
+  plan: Plan;
+  solicitud: SolicitudPremium | null;
+}
 
 // En la plataforma (sin subdominio) se usa el contrato completo de la API (ADR-009).
 export const buscarTienda = (tiendaId: string) => pedir<Tienda>(`/v1/tiendas/${tiendaId}`);
@@ -186,5 +211,73 @@ export interface EstadisticaTienda {
   actualizadoEn: string;
 }
 
-/** Estadísticas de toda la plataforma. Solo responde al rol admin. */
-export const estadisticas = () => pedir<EstadisticaTienda[]>('/v1/admin/estadisticas');
+/** Una tienda tal como la ve el administrador de la plataforma (ADR-012). */
+export interface TiendaAdmin {
+  id: string;
+  subdominio: string;
+  nombre: string;
+  rubro: string;
+  color: string;
+  plan: 'Estándar' | 'Premium';
+  /** En qué celda vive: pool o una celda Premium. */
+  celda: string;
+  /** mudandose: se está pasando a otra celda. */
+  estado: 'activa' | 'mudandose';
+  creadaEn: string;
+  url: string;
+}
+
+export interface NuevaTienda {
+  nombre: string;
+  subdominio: string;
+  rubro: string;
+  color: string;
+  duenio: { nombre: string; email: string };
+}
+
+/** La tienda creada y el usuario de su dueño. La contraseña se muestra una sola vez. */
+export interface TiendaCreada {
+  tienda: TiendaAdmin;
+  duenio: { usuario: string; clave: string };
+}
+
+/** Pasos de una mudanza (ADR-012). La vuelta a Estándar no crea celda y termina liberando la Premium. */
+export type PasoMudanza =
+  | 'creando-celda'
+  | 'frenando-escrituras'
+  | 'copiando-datos'
+  | 'verificando'
+  | 'cambiando-ruteo'
+  | 'limpiando-pool'
+  | 'liberando-celda';
+
+/** Una solicitud de cambio de plan, tal como la ve el administrador: con el paso de la mudanza. */
+export interface SolicitudAdmin {
+  id: string;
+  tiendaId: string;
+  /** El plan al que pidió pasar. */
+  plan: Plan;
+  estado: EstadoSolicitud;
+  paso: PasoMudanza | null;
+  celdaOrigen: string | null;
+  celdaDestino: string | null;
+  error: string | null;
+  creadaEn: string;
+  actualizadaEn: string;
+  /** Falta si la tienda se dio de baja. */
+  tienda?: { nombre: string; subdominio: string; plan: 'Estándar' | 'Premium'; celda: string; color: string };
+}
+
+/** Administración de la plataforma: solo para el rol admin. */
+export const admin = {
+  estadisticas: () => pedir<EstadisticaTienda[]>('/v1/admin/estadisticas'),
+  tiendas: () => pedir<TiendaAdmin[]>('/v1/admin/tiendas'),
+  crearTienda: (datos: NuevaTienda) =>
+    pedir<TiendaCreada>('/v1/admin/tiendas', { method: 'POST', body: JSON.stringify(datos) }),
+  darDeBaja: (id: string) => pedir<null>(`/v1/admin/tiendas/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  solicitudes: () => pedir<SolicitudAdmin[]>('/v1/admin/solicitudes'),
+  aprobar: (id: string) =>
+    pedir<SolicitudAdmin>(`/v1/admin/solicitudes/${encodeURIComponent(id)}/aprobar`, { method: 'POST' }),
+  rechazar: (id: string) =>
+    pedir<SolicitudAdmin>(`/v1/admin/solicitudes/${encodeURIComponent(id)}/rechazar`, { method: 'POST' }),
+};

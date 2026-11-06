@@ -198,6 +198,15 @@ svg {
   background: var(--superficie-2);
 }
 
+.boton-peligro {
+  background: var(--error);
+  color: #fff;
+}
+
+.boton-peligro:hover {
+  background: color-mix(in srgb, var(--error) 85%, #000);
+}
+
 .boton-fantasma {
   background: transparent;
   color: var(--tinta-2);
@@ -464,6 +473,12 @@ fieldset {
 .insignia-exito {
   background: var(--exito-fondo);
   color: var(--exito);
+}
+
+.insignia-aviso {
+  margin-left: 0.35rem;
+  background: #fffaeb;
+  color: #b54708;
 }
 
 .insignia-error {
