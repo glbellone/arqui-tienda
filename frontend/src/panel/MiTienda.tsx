@@ -197,7 +197,7 @@ function CambioDePlan({ plan, recargar }: { plan: PlanTienda; recargar: () => vo
             Tu tienda deja de tener infraestructura dedicada y pasa a la compartida. Tus productos y pedidos se mantienen. ¿Querés pedirlo?
           </p>
           <span className="confirmacion-fila">
-            <button type="button" className="boton boton-secundario boton-chico" onClick={() => pedir(tiendaActual.volverAEstandar)} disabled={enviando}>
+            <button type="button" className="boton boton-chico" onClick={() => pedir(tiendaActual.volverAEstandar)} disabled={enviando}>
               {enviando ? 'Enviando…' : 'Sí, volver a Estándar'}
             </button>
             <button type="button" className="boton boton-fantasma boton-chico" onClick={() => setConfirmando(false)} disabled={enviando}>
@@ -206,9 +206,12 @@ function CambioDePlan({ plan, recargar }: { plan: PlanTienda; recargar: () => vo
           </span>
         </div>
       ) : (
-        <button type="button" className="boton boton-fantasma boton-chico" onClick={() => setConfirmando(true)}>
-          Volver al plan Estándar
-        </button>
+        <>
+          <p className="texto-suave">¿Ya no necesitás infraestructura dedicada? Podés volver al plan Estándar.</p>
+          <button type="button" className="boton boton-secundario" onClick={() => setConfirmando(true)}>
+            Volver al plan Estándar
+          </button>
+        </>
       )}
     </>
   );
