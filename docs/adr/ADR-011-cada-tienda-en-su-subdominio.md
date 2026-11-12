@@ -1,6 +1,6 @@
 # ADR-011: Cada tienda se publica en su propio subdominio
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-26
 
 ## Contexto

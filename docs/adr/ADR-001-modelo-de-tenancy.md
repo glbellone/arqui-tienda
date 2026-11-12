@@ -1,6 +1,6 @@
 # ADR-001: Modelo de tenancy híbrido (pool + silo Premium)
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22
 
 ## Contexto

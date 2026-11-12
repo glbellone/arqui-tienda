@@ -1,6 +1,6 @@
 # ADR-004: Ruteo de tenants en el API Gateway
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22
 
 ## Contexto

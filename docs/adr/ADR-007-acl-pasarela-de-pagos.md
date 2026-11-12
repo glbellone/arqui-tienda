@@ -1,6 +1,6 @@
 # ADR-007: Integración con la pasarela de pagos mediante Anti-Corruption Layer
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22
 
 ## Contexto

@@ -1,6 +1,6 @@
 # ADR-009: La tienda se identifica en la URL
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22
 
 ## Contexto

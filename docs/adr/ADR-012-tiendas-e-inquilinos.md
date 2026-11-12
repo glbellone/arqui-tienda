@@ -1,6 +1,6 @@
 # ADR-012: Tiendas e Inquilinos, un servicio aparte que es el plano de control
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-11-05
 
 ## Contexto

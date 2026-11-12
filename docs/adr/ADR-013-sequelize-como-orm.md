@@ -1,6 +1,6 @@
 # ADR-013: Sequelize como ORM de la app
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-11-12
 
 ## Contexto

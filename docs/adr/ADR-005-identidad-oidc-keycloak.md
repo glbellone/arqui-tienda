@@ -1,6 +1,6 @@
 # ADR-005: Identidad con OIDC (Keycloak)
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22
 
 ## Contexto

@@ -1,6 +1,6 @@
 # ADR-002: Estilo monolito modular desplegado por celdas
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22
 
 ## Contexto

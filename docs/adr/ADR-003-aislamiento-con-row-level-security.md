@@ -1,6 +1,6 @@
 # ADR-003: Aislamiento de datos en el pool con tienda_id y row-level security
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22
 
 ## Contexto

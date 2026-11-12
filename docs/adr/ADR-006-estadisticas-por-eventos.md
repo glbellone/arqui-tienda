@@ -1,6 +1,6 @@
 # ADR-006: Estadísticas de plataforma por eventos (Publish-Subscribe)
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-10-22 (implementación: 2026-11-03)
 
 ## Contexto
