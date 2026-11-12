@@ -101,3 +101,162 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Enlaces de la barra y páginas internas (estadísticas del admin) */
+.plataforma-marca {
+  text-decoration: none;
+}
+
+.plataforma-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radio-chico);
+  color: var(--tinta-2);
+  font-size: 0.925rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.plataforma-enlace:hover,
+.plataforma-enlace.active {
+  background: var(--acento-suave);
+  color: var(--acento-tinta);
+}
+
+.plataforma-contenido {
+  flex: 1;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 4vw, 2rem) 4rem;
+}
+
+.plataforma-contenido > .aviso {
+  margin-bottom: 1.25rem;
+}
+
+.plataforma-acceso {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: clamp(2rem, 8vh, 5rem) 1rem;
+}
+
+/* Administración de la plataforma (ADR-012): el mismo esquema que el panel del dueño, con el acento de la plataforma */
+.sitio-admin {
+  --tienda: var(--acento);
+
+  display: block;
+  background: var(--fondo);
+}
+
+fieldset.campo {
+  padding: 0;
+  border: 0;
+}
+
+fieldset.campo legend {
+  margin-bottom: 0.4rem;
+  padding: 0;
+}
+
+.control-con-sufijo {
+  display: flex;
+}
+
+.control-con-sufijo .control {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.control-con-sufijo .sufijo {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  border: 1px solid var(--linea-fuerte);
+  border-left: 0;
+  border-radius: 0 var(--radio-chico) var(--radio-chico) 0;
+  background: var(--superficie-2);
+  color: var(--tinta-suave);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.selector-color {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.muestra-color {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 2px solid var(--superficie);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--linea-fuerte);
+  cursor: pointer;
+}
+
+.muestra-color-elegida {
+  box-shadow: 0 0 0 2px var(--tinta);
+}
+
+.formulario hr {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--linea);
+}
+
+.vista-previa-tienda {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.sin-cortes {
+  white-space: nowrap;
+}
+
+.confirmacion-fila {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.credenciales {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 42rem;
+}
+
+.credenciales-datos {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.credenciales-datos div {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.credenciales-datos dt {
+  color: var(--tinta-suave);
+}
+
+.credenciales-datos dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

@@ -9,7 +9,10 @@ import { ProductosController } from './http/productos.controller';
 import { PRODUCTO_MODEL, definirProductoModel } from './infrastructure/producto.model';
 import { SequelizeProductoRepository } from './infrastructure/sequelize-producto.repository';
 
-/** Bounded context Catálogo: los productos y precios de cada tienda. */
+/**
+ * Bounded context Catálogo: los productos y precios de cada tienda.
+ * Exporta ConsultarProductos: es lo único que otros módulos (Ventas) pueden usar de Catálogo.
+ */
 @Module({
   controllers: [ProductosController],
   providers: [
@@ -26,5 +29,6 @@ import { SequelizeProductoRepository } from './infrastructure/sequelize-producto
     },
     { provide: PRODUCTO_REPOSITORY, useClass: SequelizeProductoRepository },
   ],
+  exports: [ConsultarProductos],
 })
 export class CatalogoModule {}

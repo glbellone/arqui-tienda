@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { tiendaActual, type Producto, type Tienda } from '../api';
-import { esDuenioDe, ingresar, salir, type Sesion } from '../auth';
+import { tiendaActual, type Pedido, type Producto, type Tienda } from '../api';
+import { esDuenioDe, ingresar, intentarIngresoSilencioso, salir, type Sesion } from '../auth';
 import Icono, { type NombreIcono } from '../componentes/Icono';
 import MenuDesplegable from '../componentes/MenuDesplegable';
 import Monograma from '../componentes/Monograma';
@@ -24,6 +24,8 @@ export interface ContextoPanel {
   sesion: Sesion;
   productos: Carga<Producto[]>;
   recargarProductos: () => void;
+  pedidos: Carga<Pedido[]>;
+  recargarPedidos: () => void;
 }
 
 const SECCIONES: { ruta: string; etiqueta: string; icono: NombreIcono; exacta?: boolean }[] = [
@@ -45,9 +47,10 @@ export default function Panel({ tienda, sesion }: Props) {
 
 function LayoutPanel({ tienda, sesion }: { tienda: Tienda; sesion: Sesion }) {
   const [productos, recargarProductos] = useCarga(() => tiendaActual.productos(), []);
+  const [pedidos, recargarPedidos] = useCarga(() => tiendaActual.pedidos(), []);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const { pathname } = useLocation();
-  const contexto: ContextoPanel = { tienda, sesion, productos, recargarProductos };
+  const contexto: ContextoPanel = { tienda, sesion, productos, recargarProductos, pedidos, recargarPedidos };
 
   // En el celular, el menú se cierra al navegar.
   useEffect(() => {
@@ -165,13 +168,31 @@ function LayoutPanel({ tienda, sesion }: { tienda: Tienda; sesion: Sesion }) {
 }
 
 function IngresoPanel({ tienda }: { tienda: Tienda }) {
+  const { pathname } = useLocation();
+  // Si ya ingresó en otro sitio (por ejemplo, en la portada de la plataforma), entra sin volver a escribir la contraseña.
+  const [buscandoSesion, setBuscandoSesion] = useState(true);
+  useEffect(() => {
+    if (!intentarIngresoSilencioso(pathname)) setBuscandoSesion(false);
+  }, [pathname]);
+
+  if (buscandoSesion) {
+    return (
+      <main className="pantalla-acceso" aria-busy="true">
+        <div className="tarjeta tarjeta-acceso">
+          <Monograma nombre={tienda.nombre} medida="grande" />
+          <p>Un momento…</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="pantalla-acceso">
       <div className="tarjeta tarjeta-acceso">
         <Monograma nombre={tienda.nombre} medida="grande" />
         <h1>Administrá {tienda.nombre}</h1>
         <p>Ingresá con la cuenta de la tienda para gestionar tus productos y pedidos.</p>
-        <button type="button" className="boton boton-grande boton-bloque" onClick={() => ingresar('/panel')}>
+        <button type="button" className="boton boton-grande boton-bloque" onClick={() => ingresar(pathname)}>
           Ingresar
         </button>
         <Link to="/" className="enlace-suave">

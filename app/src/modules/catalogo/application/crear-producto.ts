@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { PUBLICADOR_EVENTOS, type PublicadorDeEventos } from '../../../shared/application/eventos';
 import type { Solicitante } from '../../../shared/application/solicitante';
 import { DominioError } from '../../../shared/domain/dominio.error';
 import { Precio } from '../domain/precio';
@@ -20,7 +21,10 @@ export interface CrearProductoComando {
 /** Caso de uso mínimo del TP: el dueño carga un producto en su tienda. */
 @Injectable()
 export class CrearProducto {
-  constructor(@Inject(PRODUCTO_REPOSITORY) private readonly productos: ProductoRepository) {}
+  constructor(
+    @Inject(PRODUCTO_REPOSITORY) private readonly productos: ProductoRepository,
+    @Inject(PUBLICADOR_EVENTOS) private readonly eventos: PublicadorDeEventos,
+  ) {}
 
   async ejecutar(comando: CrearProductoComando): Promise<Producto> {
     const tiendaId = TiendaId.crear(comando.tiendaId);
@@ -39,6 +43,9 @@ export class CrearProducto {
       precio: Precio.crear(comando.precio, comando.moneda),
     });
     await this.productos.guardar(producto);
+
+    // Otros contextos (Analítica) se enteran por un evento: Catálogo no sabe quién escucha.
+    this.eventos.publicar({ tipo: 'producto.creado', tiendaId: tiendaId.valor, productoId: producto.id });
     return producto;
   }
 }

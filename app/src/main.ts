@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './shared/http/problem-details.filter';
+import { validacion } from './shared/http/validacion';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,6 +15,7 @@ async function bootstrap() {
     next();
   });
 
+  app.useGlobalPipes(validacion);
   app.useGlobalFilters(new ProblemDetailsFilter());
   app.enableShutdownHooks();
   await app.listen(Number(process.env.PORT ?? 3000));

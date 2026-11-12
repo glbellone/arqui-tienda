@@ -19,7 +19,7 @@ function yaCompartio(): boolean {
 }
 
 /** Inicio del panel: un vistazo a la tienda y los próximos pasos. */
-export default function Resumen({ tienda, sesion, productos, recargarProductos }: ContextoPanel) {
+export default function Resumen({ tienda, sesion, productos, recargarProductos, pedidos }: ContextoPanel) {
   useTitulo(`Inicio · ${tienda.nombre}`);
   const [compartio, setCompartio] = useState(yaCompartio);
 
@@ -27,6 +27,10 @@ export default function Resumen({ tienda, sesion, productos, recargarProductos }
   const cantidad = lista.length;
   const promedio = cantidad ? lista.reduce((total, p) => total + p.precio.monto, 0) / cantidad : 0;
   const ultimos = [...lista].reverse().slice(0, 4);
+
+  // Los pedidos rechazados no cuentan como ventas.
+  const pagados = pedidos.estado === 'listo' ? pedidos.datos.filter((p) => p.estado === 'PAGADO') : [];
+  const vendido = pagados.reduce((total, p) => total + p.total.monto, 0);
 
   const pasos: { hecho: boolean; titulo: string; detalle: string; accion?: { a: string; texto: string } }[] = [
     {
@@ -41,7 +45,7 @@ export default function Resumen({ tienda, sesion, productos, recargarProductos }
       detalle: 'Copiá el enlace y mandáselo a tus clientes.',
     },
     {
-      hecho: false,
+      hecho: pagados.length > 0,
       titulo: 'Recibí tu primer pedido',
       detalle: 'Cuando alguien compre, lo vas a ver en Pedidos.',
     },
@@ -56,7 +60,13 @@ export default function Resumen({ tienda, sesion, productos, recargarProductos }
 
       <div className="metricas">
         <Metrica icono="paquete" etiqueta="Productos publicados" cargando={productos.estado === 'cargando'} valor={String(cantidad)} />
-        <Metrica icono="pedidos" etiqueta="Pedidos" valor="0" nota="Todavía no hay pedidos" />
+        <Metrica
+          icono="pedidos"
+          etiqueta="Pedidos pagados"
+          cargando={pedidos.estado === 'cargando'}
+          valor={pedidos.estado === 'listo' ? String(pagados.length) : '—'}
+          nota={pedidos.estado !== 'listo' ? undefined : pagados.length ? `${formatearMonto(vendido)} en ventas` : 'Todavía no hay pedidos'}
+        />
         <Metrica
           icono="etiqueta"
           etiqueta="Precio promedio"

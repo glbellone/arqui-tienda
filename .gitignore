@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
+
+# Tokens de prueba sacados con curl: nunca al repo
+/token*

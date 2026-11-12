@@ -10,9 +10,13 @@
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Public+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <style>
+      /* Se ve hasta que la aplicación termina de cargar: así la página nunca queda en blanco. */
+      .carga-inicial { margin: 40vh auto 0; text-align: center; color: #6b7280; font: 500 0.95rem system-ui, sans-serif; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><p class="carga-inicial">Cargando…</p></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

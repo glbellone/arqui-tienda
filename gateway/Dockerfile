@@ -12,6 +12,5 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
-COPY registro-tiendas.json ./
 EXPOSE 8000
 CMD ["node", "dist/main.js"]
