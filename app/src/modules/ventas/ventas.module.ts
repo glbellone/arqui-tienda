@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import type { Sequelize } from 'sequelize';
+import { SEQUELIZE } from '../../shared/db/sequelize.provider';
 import { CatalogoModule } from '../catalogo/catalogo.module';
 import { PagosModule } from '../pagos/pagos.module';
 import { ConfirmarPedido } from './application/confirmar-pedido';
@@ -7,7 +9,8 @@ import { CATALOGO } from './domain/catalogo.port';
 import { PEDIDO_REPOSITORY } from './domain/pedido.repository';
 import { PedidosController } from './http/pedidos.controller';
 import { CatalogoAdapter } from './infrastructure/catalogo.adapter';
-import { PgPedidoRepository } from './infrastructure/pg-pedido.repository';
+import { MODELOS_DE_VENTAS, definirModelosDeVentas } from './infrastructure/pedido.model';
+import { SequelizePedidoRepository } from './infrastructure/sequelize-pedido.repository';
 
 /**
  * Bounded context Ventas: pedidos y checkout. Usa a Catálogo para saber los precios y a Pagos para
@@ -19,7 +22,8 @@ import { PgPedidoRepository } from './infrastructure/pg-pedido.repository';
   providers: [
     ConfirmarPedido,
     ListarPedidos,
-    { provide: PEDIDO_REPOSITORY, useClass: PgPedidoRepository },
+    { provide: MODELOS_DE_VENTAS, inject: [SEQUELIZE], useFactory: (s: Sequelize) => definirModelosDeVentas(s) },
+    { provide: PEDIDO_REPOSITORY, useClass: SequelizePedidoRepository },
     { provide: CATALOGO, useClass: CatalogoAdapter },
   ],
 })
