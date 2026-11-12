@@ -5,7 +5,7 @@ dirección y sus compradores ven solo esa tienda. El dueño la administra desde 
 misma tienda.
 
 > Trabajo práctico integrador de Arquitectura de Software 1 (UNAHUR), escenario 4B.
-> La documentación de arquitectura está en [`docs/`](docs/).
+> El documento de arquitectura está en [`docs/arquitectura.pdf`](docs/arquitectura.pdf).
 
 ## Requisitos
 
@@ -89,7 +89,7 @@ tienda, así que tarda un par de minutos. Para empezar de cero: `docker compose 
 ├── infra/keycloak/     Usuarios, roles y diseño de la pantalla de login
 ├── api/                Especificación OpenAPI
 ├── tests/aislamiento/  Tests de punta a punta
-├── docs/               Documentación de arquitectura
+├── docs/               Documento de arquitectura (PDF)
 └── docker-compose.yml  Toda la plataforma con un comando
 ```
 

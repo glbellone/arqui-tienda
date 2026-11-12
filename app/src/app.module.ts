@@ -6,7 +6,7 @@ import { CatalogoModule } from './modules/catalogo/catalogo.module';
 import { PagosModule } from './modules/pagos/pagos.module';
 import { VentasModule } from './modules/ventas/ventas.module';
 
-// Un módulo por bounded context (ver docs/adr/ADR-002).
+// Un módulo por bounded context (ADR-002 del documento de arquitectura).
 @Module({
   imports: [DatabaseModule, EventosModule, CatalogoModule, VentasModule, PagosModule],
   controllers: [HealthController],
