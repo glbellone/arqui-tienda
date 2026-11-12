@@ -125,7 +125,8 @@ tienda, así que tarda un par de minutos. Para empezar de cero: `docker compose 
 .
 ├── frontend/           Sitio web: cada tienda (vitrina y panel del dueño) y la página de la plataforma
 ├── app/                Backend (NestJS), un módulo por área: catálogo, ventas y pagos
-│   └── db/init/        Esquema de la base de datos
+│   ├── db/init/        Esquema de la base de datos (SQL)
+│   └── src/shared/db/  Conexión con Sequelize y aislamiento por tienda
 ├── gateway/            Puerta de entrada de la API: identifica la tienda y deriva el pedido
 ├── tiendas/            Registro de tiendas y celdas: alta y baja de tiendas y pase a Premium
 ├── analitica/          Estadísticas de la plataforma: escucha los eventos de RabbitMQ
@@ -139,4 +140,4 @@ tienda, así que tarda un par de minutos. Para empezar de cero: `docker compose 
 
 ## Tecnologías
 
-React con Vite, NestJS, PostgreSQL, Keycloak, Express, RabbitMQ y Docker Compose.
+React con Vite, NestJS, PostgreSQL con Sequelize, Keycloak, Express, RabbitMQ y Docker Compose.

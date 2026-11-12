@@ -19,7 +19,7 @@ Vamos a guardar `tienda_id` en cada tabla y activar row-level security en Postgr
 ## Consecuencias
 
 - Doble barrera de aislamiento: el código y la base.
-- Toda consulta tiene que ejecutarse dentro de `TenantDb.conTienda()`.
+- Toda consulta tiene que ejecutarse dentro de `TenantDb.conTienda()`. Desde el ADR-013 lo hace cumplir un guarda sobre los modelos de Sequelize.
 
 ## NFRs afectados
 

@@ -1,6 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { ErrorDeNegocio } from './http';
 
+/** Cambios pendientes sobre las redirecciones del cliente web, en orden de llegada. */
+let colaDeRedirecciones: Promise<unknown> = Promise.resolve();
+
 /**
  * Cliente mínimo de la API de administración de Keycloak (ADR-005). El servicio de Tiendas la usa
  * para dar de alta al dueño de cada tienda nueva y habilitar el login desde su subdominio.
@@ -52,7 +55,17 @@ export class Keycloak {
     return `${this.urlPublica.replace('{subdominio}', subdominio)}/*`;
   }
 
-  private async cambiarRedirecciones(cambio: (uris: string[]) => string[]): Promise<void> {
+  /**
+   * Cambiar las redirecciones es leer la lista del cliente y escribirla entera. Si dos altas o bajas lo
+   * hacen a la vez, Keycloak rechaza una de las dos escrituras o una pisa a la otra: van de a una.
+   */
+  private cambiarRedirecciones(cambio: (uris: string[]) => string[]): Promise<void> {
+    const turno = colaDeRedirecciones.then(() => this.aplicarRedirecciones(cambio));
+    colaDeRedirecciones = turno.catch(() => undefined);
+    return turno;
+  }
+
+  private async aplicarRedirecciones(cambio: (uris: string[]) => string[]): Promise<void> {
     const [cliente] = await this.json<{ id: string; redirectUris?: string[] }[]>('GET', `/clients?clientId=${this.clientId}`);
     if (!cliente) throw new Error(`No existe el cliente ${this.clientId} en Keycloak`);
     const redirectUris = cambio(cliente.redirectUris ?? []);
