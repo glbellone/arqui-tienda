@@ -1,8 +1,6 @@
 import {
   DataTypes,
   Model,
-  Op,
-  QueryTypes,
   Sequelize,
   type CreationOptional,
   type InferAttributes,
@@ -15,6 +13,7 @@ export const PRODUCTO_MODEL = Symbol('PRODUCTO_MODEL');
 /**
  * Modelo de persistencia (tabla `productos`). Vive solo en infraestructura:
  * el dominio trabaja con el agregado Producto, nunca con este modelo.
+ * La tabla, sus restricciones y la política de RLS están en app/db/init/001_esquema.sql.
  */
 export class ProductoModel extends Model<InferAttributes<ProductoModel>, InferCreationAttributes<ProductoModel>> {
   declare id: string;
@@ -27,10 +26,7 @@ export class ProductoModel extends Model<InferAttributes<ProductoModel>, InferCr
   declare creadoEn: CreationOptional<Date>;
 }
 
-/**
- * Define el modelo sobre la conexión indicada. Crea una subclase nueva en cada llamada porque
- * el mismo modelo se define sobre dos conexiones: la de la app y la de administración (esquema).
- */
+/** Define el modelo sobre la conexión de la celda y le agrega la guarda de tenancy. */
 export function definirProductoModel(sequelize: Sequelize): typeof ProductoModel {
   class Producto extends ProductoModel {}
   Producto.init(
@@ -48,26 +44,6 @@ export function definirProductoModel(sequelize: Sequelize): typeof ProductoModel
       sequelize,
       tableName: 'productos',
       modelName: 'Producto',
-      // Un SKU es único dentro de una tienda (puede repetirse entre tiendas).
-      indexes: [{ unique: true, name: 'productos_tienda_sku_uq', fields: ['tienda_id', 'sku'] }],
-      hooks: {
-        // El CHECK de la base como segunda barrera: el precio ya se valida en el dominio (Precio).
-        afterSync: async () => {
-          const nombre = 'productos_precio_no_negativo';
-          const existentes = await sequelize.query('SELECT 1 FROM pg_constraint WHERE conname = :nombre', {
-            replacements: { nombre },
-            type: QueryTypes.SELECT,
-          });
-          if (existentes.length === 0) {
-            await sequelize.getQueryInterface().addConstraint('productos', {
-              type: 'check',
-              name: nombre,
-              fields: ['precio_centavos'],
-              where: { precio_centavos: { [Op.gte]: 0 } },
-            });
-          }
-        },
-      },
     },
   );
   exigirTransaccionDeTienda(Producto);

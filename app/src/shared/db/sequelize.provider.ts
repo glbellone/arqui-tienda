@@ -23,7 +23,7 @@ export function crearSequelize(): Sequelize {
       idle: entero('DB_POOL_IDLE_MS', 10_000),
       acquire: entero('DB_POOL_ACQUIRE_MS', 10_000),
     },
-    // El esquema lo manda el SQL de las migraciones, no los modelos.
+    // El esquema lo manda el SQL de app/db/init, no los modelos: nunca se llama a sync().
     define: { underscored: true, timestamps: false },
   });
 }

@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import type { Sequelize } from 'sequelize';
-import { ModelosPorTienda } from '../../shared/db/modelos-por-tienda';
 import { SEQUELIZE } from '../../shared/db/sequelize.provider';
 import { ConsultarProductos } from './application/consultar-productos';
 import { CrearProducto } from './application/crear-producto';
@@ -18,15 +17,8 @@ import { SequelizeProductoRepository } from './infrastructure/sequelize-producto
   providers: [
     CrearProducto,
     ConsultarProductos,
-    // Cada módulo registra sus propios modelos sobre la conexión compartida.
-    {
-      provide: PRODUCTO_MODEL,
-      inject: [SEQUELIZE, ModelosPorTienda],
-      useFactory: (sequelize: Sequelize, modelos: ModelosPorTienda) => {
-        modelos.registrar(definirProductoModel); // el esquema de la tabla lo crea EsquemaInicializador
-        return definirProductoModel(sequelize);
-      },
-    },
+    // Cada módulo define sus propios modelos sobre la conexión compartida.
+    { provide: PRODUCTO_MODEL, inject: [SEQUELIZE], useFactory: (s: Sequelize) => definirProductoModel(s) },
     { provide: PRODUCTO_REPOSITORY, useClass: SequelizeProductoRepository },
   ],
   exports: [ConsultarProductos],
