@@ -9,7 +9,7 @@ Hay que elegir el lenguaje y el framework del backend, y una base que soporte el
 
 ## Decisión
 
-Vamos a usar Node + TypeScript con NestJS para la app y PostgreSQL como base de cada celda. El acceso a datos se hace con Sequelize (ver ADR-012).
+Vamos a usar Node + TypeScript con NestJS para la app y PostgreSQL como base de cada celda. En la app, el acceso a datos se hace con Sequelize (ver ADR-013).
 
 ## Alternativas consideradas
 
